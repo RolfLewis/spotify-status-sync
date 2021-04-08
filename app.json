@@ -1,12 +1,14 @@
 {
-  "name": "Start on Heroku: Go",
-  "description": "Go Getting Started Example App",
+  "name": "Spotify Status Sync - Slack",
+  "description": "An Oauth 2.0 based app that syncs the currently playing spotify song into your slack status. ",
   "keywords": [
-    "getting-started",
-    "go",
-    "sample",
-    "example"
+    "slack",
+    "spotify",
+    "status",
+    "currently playing",
+    "song",
+    "track"
   ],
-  "website": "http://github.com/heroku/go-getting-started",
-  "repository": "http://github.com/heroku/go-getting-started"
+  "website": "https://github.com/RolfLewis/spotify-status-sync/",
+  "repository": "https://github.com/RolfLewis/spotify-status-sync/"
 }

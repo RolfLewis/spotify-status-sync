@@ -1,4 +1,4 @@
-module github.com/heroku/go-getting-started
+module rolflewis.com/spotify-status-sync
 
 go 1.12
 
