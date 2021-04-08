@@ -1,8 +1,9 @@
-# spotify-status-sync
 
-An Oauth 2.0 based app that syncs the currently playing spotify song into your slack status.
+# go-getting-started
 
-Originally templated from the Getting[Getting Started with Go on Heroku](https://devcenter.heroku.com/articles/getting-started-with-go) article.
+A barebones Go app, which can easily be deployed to Heroku.
+
+This application supports the [Getting Started with Go on Heroku](https://devcenter.heroku.com/articles/getting-started-with-go) article - check it out.
 
 ## Running Locally
 
