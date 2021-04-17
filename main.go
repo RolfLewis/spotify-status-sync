@@ -100,15 +100,15 @@ func eventsEndpoint(context *gin.Context) {
 	}
 
 	// Parse the event
-	var eventWrapper eventWrapper
-	parseError := context.BindJSON(&eventWrapper)
+	var wrapper eventWrapper
+	parseError := context.BindJSON(&wrapper)
 	if parseError != nil {
 		context.String(http.StatusInternalServerError, parseError.Error())
 		return
 	}
 
 	// Extract the inner event
-	event := eventWrapper.Event
+	event := wrapper.Event
 	log.Println(event)
 
 	// If type is a app_home_opened, answer it
