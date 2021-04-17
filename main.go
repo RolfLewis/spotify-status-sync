@@ -112,7 +112,7 @@ func eventsEndpoint(context *gin.Context) {
 	log.Println(event)
 
 	// If type is a app_home_opened, answer it
-	if eventWrapper.Type == "app_home_opened" {
+	if event.Type == "app_home_opened" {
 		// Check if spotify has been connected yet for this session
 		profileID, _, dbError := getSpotifyForUser(event.User)
 		if dbError != nil {
@@ -133,7 +133,7 @@ func eventsEndpoint(context *gin.Context) {
 		context.String(http.StatusOK, "Ok")
 	} else {
 		context.String(http.StatusBadRequest, "Not a supported event")
-		log.Fatal("Not a supported event:", event)
+		log.Println("Not a supported event:", event)
 	}
 }
 
