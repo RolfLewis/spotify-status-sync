@@ -94,7 +94,7 @@ func eventsEndpoint(context *gin.Context) {
 	// If request is a challenge request, parse it and respond
 	var challenge eventsChallenge
 	challengeError := context.BindJSON(&challenge)
-	if challengeError == nil {
+	if challengeError == nil && challenge.Challenge != "" {
 		context.String(http.StatusOK, challenge.Challenge)
 		return
 	}
@@ -103,7 +103,6 @@ func eventsEndpoint(context *gin.Context) {
 	var eventWrapper eventWrapper
 	parseError := context.BindJSON(&eventWrapper)
 	if parseError != nil {
-		log.Println("error while parsing the event:", parseError)
 		context.String(http.StatusInternalServerError, parseError.Error())
 		return
 	}
