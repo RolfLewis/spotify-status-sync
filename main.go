@@ -107,7 +107,8 @@ func callbackFlow(context *gin.Context) {
 
 	// Check status codes
 	if resp.StatusCode != http.StatusOK {
-		context.String(http.StatusInternalServerError, "Non-200 status code from auth endpoint:"+strconv.Itoa(resp.StatusCode))
+		context.String(http.StatusInternalServerError, "Non-200 status code from auth endpoint:"+strconv.Itoa(resp.StatusCode)+" / "+resp.Status)
+		return
 	}
 
 	// Read the tokens
