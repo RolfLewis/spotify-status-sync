@@ -64,19 +64,26 @@ func main() {
 	router.Run(":" + port)
 }
 
-type eventsChallenge struct {
-	Token     string `json:"token"`
-	Challenge string `json:"challenge"`
-	Type      string `json:"type"`
+type eventWrapper struct {
+	Token    string `json:"token"`
+	TeamID   string `json:"team_id"`
+	APIAppID string `json:"api_app_id"`
+	Event    *event `json:"event"`
+	Type     string `json:"type"`
 }
 
-type appHomeOpened struct {
+type event struct {
 	Type      string `json:"type"`
 	User      string `json:"user"`
 	Channel   string `json:"channel"`
 	Timestamp string `json:"event_ts"`
 	Tab       string `json:"tab"`
+}
+
+type eventsChallenge struct {
+	Token     string `json:"token"`
 	Challenge string `json:"challenge"`
+	Type      string `json:"type"`
 }
 
 type viewPublishResponse struct {
@@ -84,23 +91,28 @@ type viewPublishResponse struct {
 }
 
 func eventsEndpoint(context *gin.Context) {
+	// If request is a challenge request, parse it and respond
+	var challenge eventsChallenge
+	challengeError := context.BindJSON(&challenge)
+	if challengeError == nil {
+		context.String(http.StatusOK, challenge.Challenge)
+		return
+	}
+
 	// Parse the event
-	var event appHomeOpened
-	parseError := context.BindJSON(&event)
+	var eventWrapper eventWrapper
+	parseError := context.BindJSON(&eventWrapper)
 	if parseError != nil {
 		log.Println("error while parsing the event:", parseError)
 		context.String(http.StatusInternalServerError, parseError.Error())
 		return
 	}
 
-	// if challenge is defined, answer it
-	if event.Challenge != "" {
-		context.String(http.StatusOK, event.Challenge)
-		return
-	}
+	// Extract the inner event
+	event := eventWrapper.Event
 
 	// If type is a app_home_opened, answer it
-	if event.Type == "app_home_opened" {
+	if eventWrapper.Type == "app_home_opened" {
 		// Send an acknowledgment
 		context.String(http.StatusOK, "Ok")
 
