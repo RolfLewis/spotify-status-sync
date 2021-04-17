@@ -13,7 +13,6 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	_ "github.com/heroku/x/hmetrics/onload"
 )
 
@@ -72,6 +71,14 @@ type eventsChallenge struct {
 	Type      string `json:"type"`
 }
 
+type appHomeOpened struct {
+	Type      string `json:"type"`
+	User      string `json:"user"`
+	Channel   string `json:"channel"`
+	Timestamp string `json:"event_ts"`
+	Tab       string `json:"tab"`
+}
+
 func eventsEndpoint(context *gin.Context) {
 	// Attempt to parse as a challenge message first, just in case
 	var jsonChallenge eventsChallenge
@@ -79,8 +86,92 @@ func eventsEndpoint(context *gin.Context) {
 	if challengeError == nil {
 		context.String(http.StatusOK, jsonChallenge.Challenge)
 		return
-	} else {
-		log.Println(challengeError)
+	}
+
+	// Event is not the challenge event, so try for an app_home_opened event first
+	var openedHome appHomeOpened
+	homeError := context.BindJSON(&openedHome)
+	if homeError == nil {
+		// Check if spotify has been connected yet for this session
+		profileID, _, dbError := getSpotifyForUser(openedHome.User)
+		if dbError != nil {
+			context.String(http.StatusInternalServerError, dbError.Error())
+			return
+		}
+
+		if profileID == "" { // Serve a new welcome screen
+			context.JSON(http.StatusOK, `{
+				"blocks": [
+					{
+						"type": "divider"
+					},
+					{
+						"type": "section",
+						"text": {
+							"type": "mrkdwn",
+							"text": "Hello! Thanks for using the Spotify / Slack Status Sync app. To get started, simply click the button below and log in through Spotify to connect your account."
+						}
+					},
+					{
+						"type": "divider"
+					},
+					{
+						"type": "section",
+						"text": {
+							"type": "mrkdwn",
+							"text": "*Log in with spotify here:*"
+						},
+						"accessory": {
+							"type": "button",
+							"text": {
+								"type": "plain_text",
+								"text": "Log in to Spotify",
+								"emoji": true
+							},
+							"value": "login",
+							"url": "https://google.com",
+							"action_id": "button-action"
+						}
+					}
+				]
+			}`)
+		} else { // Serve an all-set screen
+			context.JSON(http.StatusOK, `{
+				"blocks": [
+					{
+						"type": "divider"
+					},
+					{
+						"type": "section",
+						"text": {
+							"type": "mrkdwn",
+							"text": "You're all set. Thanks."
+						}
+					},
+					{
+						"type": "divider"
+					},
+					{
+						"type": "section",
+						"text": {
+							"type": "mrkdwn",
+							"text": "*Log in with spotify here:*"
+						},
+						"accessory": {
+							"type": "button",
+							"text": {
+								"type": "plain_text",
+								"text": "Log in to Spotify",
+								"emoji": true
+							},
+							"value": "login",
+							"url": "https://google.com",
+							"action_id": "button-action"
+						}
+					}
+				]
+			}`)
+		}
 	}
 }
 
@@ -135,15 +226,11 @@ func getLoginRedirectURL() string {
 func loginFlow(context *gin.Context) {
 	callbackURL := getLoginRedirectURL()
 
-	// Check for cookies
-	sessionCookie, cookieError := context.Cookie("session")
-	if cookieError != nil {
-		sessionCookie = uuid.NewString()
-		context.SetCookie("session", sessionCookie, 3600, "/", "spotify-status-sync.herokuapp.com", true, true)
-	}
+	// Read user id (passed as state)
+	user := context.Query("state")
 
 	// Check if spotify has been connected yet for this session
-	profileID, tokens, dbError := getSpotifyForSession(sessionCookie)
+	profileID, tokens, dbError := getSpotifyForUser(user)
 	if dbError != nil {
 		context.String(http.StatusInternalServerError, dbError.Error())
 		return
@@ -166,13 +253,6 @@ func loginFlow(context *gin.Context) {
 }
 
 func callbackFlow(context *gin.Context) {
-	// Get the session ID cookie
-	session, sessionError := context.Cookie("session")
-	if sessionError != nil {
-		context.String(http.StatusInternalServerError, sessionError.Error())
-		return
-	}
-
 	// Check for error from Spotify
 	errorMsg := context.Query("error")
 	if errorMsg != "" {
@@ -182,6 +262,9 @@ func callbackFlow(context *gin.Context) {
 
 	// Read auth code
 	code := context.Query("code")
+
+	// Read the user id (passed as state)
+	user := context.Query("state")
 
 	// Exchange code for tokens
 	tokens, exchangeError := exchangeCodeForTokens(code)
@@ -203,13 +286,13 @@ func callbackFlow(context *gin.Context) {
 	}
 
 	// Save the information to the DB
-	dbError := addSpotifyToSession(session, *profile, *tokens)
+	dbError := addSpotifyToUser(user, *profile, *tokens)
 	if dbError != nil {
 		context.String(http.StatusInternalServerError, dbError.Error())
 		return
 	}
 
-	context.String(http.StatusOK, session+" "+profile.DisplayName+" "+profile.ID)
+	context.String(http.StatusOK, user+" "+profile.DisplayName+" "+profile.ID)
 }
 
 func exchangeCodeForTokens(code string) (*spotifyAuthResponse, error) {
@@ -296,4 +379,8 @@ func getProfileForTokens(tokens spotifyAuthResponse) (*spotifyProfile, error) {
 	}
 
 	return &profile, nil
+}
+
+func createAndSendHomepageForUser(user string) {
+
 }

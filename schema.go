@@ -13,9 +13,8 @@ import (
 var appDatabase *sqlx.DB
 
 var tables = []string{
-	"sessions",
 	"spotifyaccounts",
-	// "slackaccounts",
+	"slackaccounts",
 }
 
 func connectToDatabase() {
@@ -63,35 +62,31 @@ func validateSchema() {
 	createTableIfNotExists("spotifyaccounts", `CREATE TABLE spotifyaccounts (id text CONSTRAINT spotify_pk PRIMARY KEY NOT null,
 		accessToken text, refreshToken text, expirationAt timestamp);`)
 
-	createTableIfNotExists("slackaccounts", `CREATE TABLE slackaccounts (id uuid CONSTRAINT slack_pk PRIMARY KEY NOT null,
+	createTableIfNotExists("slackaccounts", `CREATE TABLE slackaccounts (id text CONSTRAINT slack_pk PRIMARY KEY NOT null,
 		accessToken text, refreshToken text, expirationAt timestamp,
 		spotify_id text, CONSTRAINT spotify_fk FOREIGN KEY(spotify_id) REFERENCES spotifyaccounts(id));`)
-
-	createTableIfNotExists("sessions", `CREATE TABLE sessions (session_id uuid CONSTRAINT session_pk PRIMARY KEY NOT null,
-		spotify_id text, CONSTRAINT spotify_fk FOREIGN KEY(spotify_id) REFERENCES spotifyaccounts(id),
-		slack_id uuid, CONSTRAINT slack_fk FOREIGN KEY(slack_id) REFERENCES slackaccounts(id));`)
 }
 
-func addNewSession(id string) error {
-	_, rowInsertError := appDatabase.Exec("INSERT INTO sessions VALUES ($1);", id)
+func addNewUser(user string) error {
+	_, rowInsertError := appDatabase.Exec("INSERT INTO slackaccounts VALUES ($1);", user)
 	return rowInsertError
 }
 
-func addSpotifyToSession(session string, profile spotifyProfile, tokens spotifyAuthResponse) error {
+func addSpotifyToUser(user string, profile spotifyProfile, tokens spotifyAuthResponse) error {
 	expirationTime := time.Now().Add(time.Second * time.Duration(tokens.ExpiresIn))
 	_, rowInsertError := appDatabase.Exec("INSERT INTO spotifyaccounts VALUES ($1, $2, $3, $4);", profile.ID, tokens.AccessToken, tokens.RefreshToken, expirationTime)
 	if rowInsertError != nil {
 		return rowInsertError
 	}
 
-	_, rowUpdateError := appDatabase.Exec("UPDATE spotifyaccounts SET spotify_id=$1 WHERE session_id=$2", profile.ID, session)
+	_, rowUpdateError := appDatabase.Exec("UPDATE spotifyaccounts SET spotify_id=$1 WHERE session_id=$2", profile.ID, user)
 	return rowUpdateError
 }
 
-func getSpotifyForSession(session string) (string, *spotifyAuthResponse, error) {
+func getSpotifyForUser(user string) (string, *spotifyAuthResponse, error) {
 	// Get the spotify ID from the session
 	var spotifyID string
-	scanError := appDatabase.QueryRowx("SELECT spotify_id FROM sessions WHERE session_id=$1", session).Scan(&spotifyID)
+	scanError := appDatabase.QueryRowx("SELECT spotify_id FROM slackaccounts WHERE id=$1", user).Scan(&spotifyID)
 	if scanError != nil && scanError == sql.ErrNoRows {
 		return "", nil, nil // Nothing to return
 	} else if scanError != nil {
