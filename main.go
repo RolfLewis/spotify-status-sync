@@ -109,6 +109,7 @@ func eventsEndpoint(context *gin.Context) {
 
 	// Extract the inner event
 	event := eventWrapper.Event
+	log.Println(event)
 
 	// If type is a app_home_opened, answer it
 	if eventWrapper.Type == "app_home_opened" {
