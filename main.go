@@ -87,6 +87,7 @@ func eventsEndpoint(context *gin.Context) {
 	var jsonChallenge eventsChallenge
 	challengeError := context.BindJSON(&jsonChallenge)
 	if challengeError == nil {
+		log.Println("here", jsonChallenge.Challenge)
 		context.String(http.StatusOK, jsonChallenge.Challenge)
 		return
 	}
@@ -118,12 +119,13 @@ func eventsEndpoint(context *gin.Context) {
 }
 
 func interactivityEndpoint(context *gin.Context) {
-	var jsonData string
-	jsonError := context.BindJSON(&jsonData)
-	if jsonError != nil {
-		log.Println(jsonError.Error())
-	}
-	log.Println(jsonData)
+	// var jsonData string
+	// jsonError := context.BindJSON(&jsonData)
+	// if jsonError != nil {
+	// 	log.Println(jsonError.Error())
+	// }
+	// log.Println(jsonData)
+	log.Println("interactive")
 }
 
 func getLoginRedirectURL() string {
