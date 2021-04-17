@@ -36,7 +36,7 @@ func loginFlow(context *gin.Context) {
 	clientID := os.Getenv("SPOTIFY_CLIENT_ID")
 	callbackURL := "https://spotify-status-sync.herokuapp.com/callback"
 	spotifyAuthURL := "https://accounts.spotify.com/authorize?client_id=" + clientID + "&response_type=code&redirect_uri=" + url.PathEscape(callbackURL) + "&scope=user-read-currently-playing"
-	context.Redirect(http.StatusOK, spotifyAuthURL)
+	context.Redirect(http.StatusPermanentRedirect, spotifyAuthURL)
 }
 
 func callbackFlow(context *gin.Context) {
