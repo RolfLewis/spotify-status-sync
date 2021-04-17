@@ -86,8 +86,7 @@ func eventsEndpoint(context *gin.Context) {
 	// Attempt to parse as a challenge message first, just in case
 	var jsonChallenge eventsChallenge
 	challengeError := context.BindJSON(&jsonChallenge)
-	if challengeError == nil {
-		log.Println("here", jsonChallenge.Challenge)
+	if challengeError == nil && jsonChallenge.Challenge != "" {
 		context.String(http.StatusOK, jsonChallenge.Challenge)
 		return
 	}
@@ -95,7 +94,7 @@ func eventsEndpoint(context *gin.Context) {
 	// Event is not the challenge event, so try for an app_home_opened event first
 	var openedHome appHomeOpened
 	homeError := context.BindJSON(&openedHome)
-	if homeError == nil {
+	if homeError == nil && openedHome.Type == "app_home_opened" {
 		// Send an acknowledgment
 		context.String(http.StatusOK, "Ok")
 
