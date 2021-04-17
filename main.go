@@ -168,7 +168,7 @@ func getProfileForTokens(tokens spotifyAuthResponse) (*spotifyProfile, error) {
 	}
 
 	// Add auth
-	profReq.Header.Add("Authorization", tokens.AccessToken)
+	profReq.Header.Add("Authorization", "Bearer "+tokens.AccessToken)
 
 	// Send the request
 	profResp, profRespError := spotifyClient.Do(profReq)
