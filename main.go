@@ -51,8 +51,9 @@ func main() {
 		c.HTML(http.StatusOK, "index.tmpl.html", nil)
 	})
 
-	router.GET("/login", loginFlow)
-	router.GET("/callback", callbackFlow)
+	router.GET("/spotify/login", loginFlow)
+	router.GET("/spotify/callback", callbackFlow)
+	router.GET("/interactivity", interactivityEndpoint)
 
 	// Create the global spotify client
 	spotifyClient = http.DefaultClient
@@ -62,6 +63,12 @@ func main() {
 	validateSchema()
 
 	router.Run(":" + port)
+}
+
+func interactivityEndpoint(context *gin.Context) {
+	var jsonData string
+	context.BindJSON(&jsonData)
+	log.Println(jsonData)
 }
 
 func getLoginRedirectURL() string {
