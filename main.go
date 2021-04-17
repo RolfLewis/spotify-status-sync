@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	_ "github.com/heroku/x/hmetrics/onload"
 )
 
@@ -56,6 +57,10 @@ func main() {
 	// Create the global spotify client
 	spotifyClient = http.DefaultClient
 
+	// Database setup
+	connectToDatabase()
+	validateSchema()
+
 	router.Run(":" + port)
 }
 
@@ -66,19 +71,44 @@ func getLoginRedirectURL() string {
 func loginFlow(context *gin.Context) {
 	callbackURL := getLoginRedirectURL()
 
-	// Set the query values
-	queryValues := url.Values{}
-	queryValues.Set("client_id", os.Getenv("SPOTIFY_CLIENT_ID"))
-	queryValues.Set("response_type", "code")
-	queryValues.Set("redirect_uri", url.PathEscape(callbackURL))
-	queryValues.Set("scope", "user-read-currently-playing")
+	// Check for cookies
+	sessionCookie, cookieError := context.Cookie("session")
+	if cookieError != nil {
+		sessionCookie = uuid.NewString()
+		context.SetCookie("session", sessionCookie, 3600, "/", "spotify-status-sync.herokuapp.com", true, true)
+	}
 
-	// Redirect to spotify OAuth page
-	OAuthURL := spotifyAuthURL + "/authorize?" + queryValues.Encode()
-	context.Redirect(http.StatusPermanentRedirect, OAuthURL)
+	// Check if spotify has been connected yet for this session
+	profileID, tokens, dbError := getSpotifyForSession(sessionCookie)
+	if dbError != nil {
+		context.String(http.StatusInternalServerError, dbError.Error())
+		return
+	}
+
+	if profileID == "" { // Spotify has not been connected in this session yet
+		// Set the query values
+		queryValues := url.Values{}
+		queryValues.Set("client_id", os.Getenv("SPOTIFY_CLIENT_ID"))
+		queryValues.Set("response_type", "code")
+		queryValues.Set("redirect_uri", url.PathEscape(callbackURL))
+		queryValues.Set("scope", "user-read-currently-playing")
+
+		// Redirect to spotify OAuth page
+		OAuthURL := spotifyAuthURL + "/authorize?" + queryValues.Encode()
+		context.Redirect(http.StatusPermanentRedirect, OAuthURL)
+	} else { // Spotify already exists for this session
+		context.String(http.StatusOK, "Spotify already connected for this session: "+profileID+" / "+tokens.AccessToken)
+	}
 }
 
 func callbackFlow(context *gin.Context) {
+	// Get the session ID cookie
+	session, sessionError := context.Cookie("session")
+	if sessionError != nil {
+		context.String(http.StatusInternalServerError, sessionError.Error())
+		return
+	}
+
 	// Check for error from Spotify
 	errorMsg := context.Query("error")
 	if errorMsg != "" {
@@ -108,7 +138,14 @@ func callbackFlow(context *gin.Context) {
 		return
 	}
 
-	context.String(http.StatusOK, profile.DisplayName+" "+profile.ID)
+	// Save the information to the DB
+	dbError := addSpotifyToSession(session, *profile, *tokens)
+	if dbError != nil {
+		context.String(http.StatusInternalServerError, dbError.Error())
+		return
+	}
+
+	context.String(http.StatusOK, session+" "+profile.DisplayName+" "+profile.ID)
 }
 
 func exchangeCodeForTokens(code string) (*spotifyAuthResponse, error) {
