@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/heroku/x/hmetrics/onload"
@@ -80,22 +81,27 @@ func callbackFlow(context *gin.Context) {
 		return
 	}
 
-	// Get the auth and refresh tokens
-	req, reqError := http.NewRequest(http.MethodPost, spotifyBaseURL+"api/token", nil)
-	if reqError != nil {
-		context.String(http.StatusInternalServerError, reqError.Error())
-		return
-	}
-
-	// Encode the authorization header
-	bytes := []byte(os.Getenv("SPOTIFY_CLIENT_ID") + ":" + os.Getenv("SPOTIFY_CLIENT_SECRET"))
-	req.Header.Add("Authorization", "Basic "+base64.StdEncoding.EncodeToString(bytes))
-
 	// Set the query values
 	queryValues := url.Values{}
 	queryValues.Set("grant_type", "authorization_code")
 	queryValues.Set("code", code)
 	queryValues.Set("redirect_uri", getLoginRedirectURL())
+	urlEncodedBody := queryValues.Encode()
+
+	// Get the auth and refresh tokens
+	req, reqError := http.NewRequest(http.MethodPost, spotifyBaseURL+"api/token", strings.NewReader(urlEncodedBody))
+	if reqError != nil {
+		context.String(http.StatusInternalServerError, reqError.Error())
+		return
+	}
+
+	// Add the body headers
+	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Add("Content-Length", strconv.Itoa(len(urlEncodedBody)))
+
+	// Encode the authorization header
+	bytes := []byte(os.Getenv("SPOTIFY_CLIENT_ID") + ":" + os.Getenv("SPOTIFY_CLIENT_SECRET"))
+	req.Header.Add("Authorization", "Basic "+base64.StdEncoding.EncodeToString(bytes))
 
 	// Send the request
 	resp, respError := spotifyClient.Do(req)
@@ -107,7 +113,7 @@ func callbackFlow(context *gin.Context) {
 
 	// Check status codes
 	if resp.StatusCode != http.StatusOK {
-		context.String(http.StatusInternalServerError, "Non-200 status code from auth endpoint:"+strconv.Itoa(resp.StatusCode)+" / "+resp.Status)
+		context.String(http.StatusInternalServerError, "Non-200 status code from auth endpoint: "+strconv.Itoa(resp.StatusCode)+" / "+resp.Status)
 		return
 	}
 
