@@ -101,6 +101,10 @@ func callbackFlow(context *gin.Context) {
 		context.String(http.StatusInternalServerError, profileError.Error())
 	}
 
+	if profile == nil {
+		context.String(http.StatusInternalServerError, "No profile returned from GET")
+	}
+
 	context.String(http.StatusOK, profile.DisplayName+" "+profile.ID)
 }
 
