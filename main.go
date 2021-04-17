@@ -132,6 +132,7 @@ func interactivityEndpoint(context *gin.Context) {
 	// }
 	// log.Println(jsonData)
 	log.Println("interactive")
+	context.String(http.StatusOK, "interactive")
 }
 
 func getLoginRedirectURL() string {
