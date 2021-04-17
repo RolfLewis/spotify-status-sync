@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/heroku/x/hmetrics/onload"
@@ -102,8 +103,12 @@ func callbackFlow(context *gin.Context) {
 		context.String(http.StatusInternalServerError, respError.Error())
 		return
 	}
-
 	defer resp.Body.Close()
+
+	// Check status codes
+	if resp.StatusCode != http.StatusOK {
+		context.String(http.StatusInternalServerError, "Non-200 status code from auth endpoint:"+strconv.Itoa(resp.StatusCode))
+	}
 
 	// Read the tokens
 	jsonBytes, readError := ioutil.ReadAll(resp.Body)
@@ -111,6 +116,8 @@ func callbackFlow(context *gin.Context) {
 		context.String(http.StatusInternalServerError, readError.Error())
 		return
 	}
+
+	log.Println(jsonBytes)
 
 	var tokens spotifyAuthResponse
 	jsonError := json.Unmarshal(jsonBytes, &tokens)
