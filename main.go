@@ -100,6 +100,18 @@ func eventsEndpoint(context *gin.Context) {
 		}
 
 		if profileID == "" { // Serve a new welcome screen
+			// Set the query values
+			queryValues := url.Values{}
+			queryValues.Set("client_id", os.Getenv("SPOTIFY_CLIENT_ID"))
+			queryValues.Set("response_type", "code")
+			queryValues.Set("redirect_uri", getLoginRedirectURL())
+			queryValues.Set("scope", "user-read-currently-playing")
+			queryValues.Set("state", openedHome.User)
+
+			// Link to spotify OAuth page
+			OAuthURL := spotifyAuthURL + "/authorize?" + queryValues.Encode()
+
+			// Update home view
 			context.JSON(http.StatusOK, `{
 				"blocks": [
 					{
@@ -129,7 +141,7 @@ func eventsEndpoint(context *gin.Context) {
 								"emoji": true
 							},
 							"value": "login",
-							"url": "https://google.com",
+							"url": "`+OAuthURL+`",
 							"action_id": "button-action"
 						}
 					}
