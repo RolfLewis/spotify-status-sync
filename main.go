@@ -332,6 +332,7 @@ func createNewUserHomepage(user string) {
 	viewReq, viewReqError := http.NewRequest(http.MethodPost, spotifyAPIURL+"views.publish", strings.NewReader(newView))
 	if viewReqError != nil {
 		log.Println(viewReqError)
+		return
 	}
 
 	// Add the body headers
@@ -345,24 +346,28 @@ func createNewUserHomepage(user string) {
 	viewResp, viewRespError := spotifyClient.Do(viewReq)
 	if viewRespError != nil {
 		log.Println(viewRespError)
+		return
 	}
 	defer viewResp.Body.Close()
 
 	// Check status codes
 	if viewResp.StatusCode != http.StatusOK {
 		log.Println("Non-200 status code from view.publish endpoint: " + strconv.Itoa(viewResp.StatusCode) + " / " + viewResp.Status)
+		return
 	}
 
 	// Read the tokens
 	jsonBytes, readError := ioutil.ReadAll(viewResp.Body)
 	if readError != nil {
 		log.Println(readError)
+		return
 	}
 
 	var responseObject viewPublishResponse
 	jsonError := json.Unmarshal(jsonBytes, &responseObject)
 	if jsonError != nil {
 		log.Println(jsonError)
+		return
 	}
 
 	if !responseObject.OK {
