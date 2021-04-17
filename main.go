@@ -76,9 +76,11 @@ func eventsEndpoint(context *gin.Context) {
 	// Attempt to parse as a challenge message first, just in case
 	var jsonChallenge eventsChallenge
 	challengeError := context.BindJSON(&jsonChallenge)
-	if challengeError != nil {
+	if challengeError == nil {
 		context.String(http.StatusOK, jsonChallenge.Challenge)
 		return
+	} else {
+		log.Println(challengeError)
 	}
 }
 
