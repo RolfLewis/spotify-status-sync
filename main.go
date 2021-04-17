@@ -119,6 +119,7 @@ func eventsEndpoint(context *gin.Context) {
 			createReturningHomepage(event.User)
 		}
 	} else {
+		context.String(http.StatusBadRequest, "Not a supported event")
 		log.Fatal("Not a supported event")
 	}
 }
