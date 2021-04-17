@@ -54,6 +54,7 @@ func main() {
 	router.GET("/spotify/login", loginFlow)
 	router.GET("/spotify/callback", callbackFlow)
 	router.POST("/interactivity", interactivityEndpoint)
+	router.POST("/slack/events", eventsEndpoint)
 
 	// Create the global spotify client
 	spotifyClient = http.DefaultClient
@@ -63,6 +64,22 @@ func main() {
 	validateSchema()
 
 	router.Run(":" + port)
+}
+
+type eventsChallenge struct {
+	Token     string `json:"token"`
+	Challenge string `json:"challenge"`
+	Type      string `json:"type"`
+}
+
+func eventsEndpoint(context *gin.Context) {
+	// Attempt to parse as a challenge message first, just in case
+	var jsonChallenge eventsChallenge
+	challengeError := context.BindJSON(&jsonChallenge)
+	if challengeError != nil {
+		context.String(http.StatusOK, jsonChallenge.Challenge)
+		return
+	}
 }
 
 func interactivityEndpoint(context *gin.Context) {
