@@ -53,7 +53,7 @@ func main() {
 
 	router.GET("/spotify/login", loginFlow)
 	router.GET("/spotify/callback", callbackFlow)
-	router.GET("/interactivity", interactivityEndpoint)
+	router.POST("/interactivity", interactivityEndpoint)
 
 	// Create the global spotify client
 	spotifyClient = http.DefaultClient
