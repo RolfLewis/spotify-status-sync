@@ -339,8 +339,7 @@ func createNewUserHomepage(user string) {
 	viewReq.Header.Add("Content-Length", strconv.Itoa(len(newView)))
 
 	// Encode the authorization header
-	bytes := []byte(os.Getenv("SLACK_BEARER_TOKEN"))
-	viewReq.Header.Add("Authorization", "Basic "+base64.StdEncoding.EncodeToString(bytes))
+	viewReq.Header.Add("Authorization", "Bearer "+os.Getenv("SLACK_BEARER_TOKEN"))
 
 	// Send the request
 	viewResp, viewRespError := spotifyClient.Do(viewReq)
