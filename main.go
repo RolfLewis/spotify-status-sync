@@ -98,7 +98,7 @@ func callbackFlow(context *gin.Context) {
 	// Get the user's profile information
 	profile, profileError := getProfileForTokens(*tokens)
 	if profileError != nil {
-		context.String(http.StatusInternalServerError, exchangeError.Error())
+		context.String(http.StatusInternalServerError, profileError.Error())
 	}
 
 	context.String(http.StatusOK, profile.DisplayName+" "+profile.ID)
