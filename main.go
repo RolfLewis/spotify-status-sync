@@ -76,6 +76,7 @@ type appHomeOpened struct {
 	Channel   string `json:"channel"`
 	Timestamp string `json:"event_ts"`
 	Tab       string `json:"tab"`
+	Challenge string `json:"challenge"`
 }
 
 type viewPublishResponse struct {
@@ -83,23 +84,28 @@ type viewPublishResponse struct {
 }
 
 func eventsEndpoint(context *gin.Context) {
-	// Attempt to parse as a challenge message first, just in case
-	var jsonChallenge eventsChallenge
-	challengeError := context.BindJSON(&jsonChallenge)
-	if challengeError == nil && jsonChallenge.Challenge != "" {
-		context.String(http.StatusOK, jsonChallenge.Challenge)
+	// Parse the event
+	var event appHomeOpened
+	parseError := context.BindJSON(&event)
+	if parseError != nil {
+		log.Println("error while parsing the event:", parseError)
+		context.String(http.StatusInternalServerError, parseError.Error())
 		return
 	}
 
-	// Event is not the challenge event, so try for an app_home_opened event first
-	var openedHome appHomeOpened
-	homeError := context.BindJSON(&openedHome)
-	if homeError == nil && openedHome.Type == "app_home_opened" {
+	// if challenge is defined, answer it
+	if event.Challenge != "" {
+		context.String(http.StatusOK, event.Challenge)
+		return
+	}
+
+	// If type is a app_home_opened, answer it
+	if event.Type == "app_home_opened" {
 		// Send an acknowledgment
 		context.String(http.StatusOK, "Ok")
 
 		// Check if spotify has been connected yet for this session
-		profileID, _, dbError := getSpotifyForUser(openedHome.User)
+		profileID, _, dbError := getSpotifyForUser(event.User)
 		if dbError != nil {
 			context.String(http.StatusInternalServerError, dbError.Error())
 			return
@@ -108,9 +114,9 @@ func eventsEndpoint(context *gin.Context) {
 		log.Println("Spotify for user:", profileID)
 
 		if profileID == "" { // Serve a new welcome screen
-			createNewUserHomepage(openedHome.User)
+			createNewUserHomepage(event.User)
 		} else { // Serve an all-set screen
-			createReturningHomepage(openedHome.User)
+			createReturningHomepage(event.User)
 		}
 	} else {
 		log.Fatal("Not a supported event")
