@@ -65,11 +65,12 @@ func main() {
 }
 
 type eventWrapper struct {
-	Token    string `json:"token"`
-	TeamID   string `json:"team_id"`
-	APIAppID string `json:"api_app_id"`
-	Event    *event `json:"event"`
-	Type     string `json:"type"`
+	Token     string `json:"token"`
+	TeamID    string `json:"team_id"`
+	APIAppID  string `json:"api_app_id"`
+	Event     *event `json:"event"`
+	Type      string `json:"type"`
+	Challenge string `json:"challenge"`
 }
 
 type event struct {
@@ -80,30 +81,22 @@ type event struct {
 	Tab       string `json:"tab"`
 }
 
-type eventsChallenge struct {
-	Token     string `json:"token"`
-	Challenge string `json:"challenge"`
-	Type      string `json:"type"`
-}
-
 type viewPublishResponse struct {
 	OK bool `json:"ok"`
 }
 
 func eventsEndpoint(context *gin.Context) {
-	// If request is a challenge request, parse it and respond
-	var challenge eventsChallenge
-	challengeError := context.BindJSON(&challenge)
-	if challengeError == nil && challenge.Challenge != "" {
-		context.String(http.StatusOK, challenge.Challenge)
-		return
-	}
-
 	// Parse the event
 	var wrapper eventWrapper
 	parseError := context.BindJSON(&wrapper)
 	if parseError != nil {
 		context.String(http.StatusInternalServerError, parseError.Error())
+		return
+	}
+
+	// If this is a challenge request, respond
+	if wrapper.Type == "url_verification" {
+		context.String(http.StatusOK, wrapper.Challenge)
 		return
 	}
 
