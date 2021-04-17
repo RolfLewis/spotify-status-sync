@@ -14,8 +14,8 @@ var appDatabase *sqlx.DB
 
 var tables = []string{
 	"sessions",
-	"spotifyAccounts",
-	// "slackAccounts",
+	"spotifyaccounts",
+	// "slackaccounts",
 }
 
 func connectToDatabase() {
@@ -60,16 +60,16 @@ func validateSchema() {
 		}
 	}
 
-	createTableIfNotExists("spotifyAccounts", `CREATE TABLE spotifyAccounts (id text CONSTRAINT spotify_pk PRIMARY KEY NOT null,
+	createTableIfNotExists("spotifyaccounts", `CREATE TABLE spotifyaccounts (id text CONSTRAINT spotify_pk PRIMARY KEY NOT null,
 		accessToken text, refreshToken text, expirationAt timestamp);`)
 
-	createTableIfNotExists("slackAccounts", `CREATE TABLE slackAccounts (id uuid CONSTRAINT slack_pk PRIMARY KEY NOT null,
+	createTableIfNotExists("slackaccounts", `CREATE TABLE slackaccounts (id uuid CONSTRAINT slack_pk PRIMARY KEY NOT null,
 		accessToken text, refreshToken text, expirationAt timestamp,
-		spotify_id text, CONSTRAINT spotify_fk FOREIGN KEY(spotify_id) REFERENCES spotifyAccounts(id));`)
+		spotify_id text, CONSTRAINT spotify_fk FOREIGN KEY(spotify_id) REFERENCES spotifyaccounts(id));`)
 
 	createTableIfNotExists("sessions", `CREATE TABLE sessions (session_id uuid CONSTRAINT session_pk PRIMARY KEY NOT null,
-		spotify_id text, CONSTRAINT spotify_fk FOREIGN KEY(spotify_id) REFERENCES spotifyAccounts(id),
-		slack_id uuid, CONSTRAINT slack_fk FOREIGN KEY(slack_id) REFERENCES slackAccounts(id));`)
+		spotify_id text, CONSTRAINT spotify_fk FOREIGN KEY(spotify_id) REFERENCES spotifyaccounts(id),
+		slack_id uuid, CONSTRAINT slack_fk FOREIGN KEY(slack_id) REFERENCES slackaccounts(id));`)
 }
 
 func addNewSession(id string) error {
@@ -79,12 +79,12 @@ func addNewSession(id string) error {
 
 func addSpotifyToSession(session string, profile spotifyProfile, tokens spotifyAuthResponse) error {
 	expirationTime := time.Now().Add(time.Second * time.Duration(tokens.ExpiresIn))
-	_, rowInsertError := appDatabase.Exec("INSERT INTO spotifyAccounts VALUES ($1, $2, $3, $4);", profile.ID, tokens.AccessToken, tokens.RefreshToken, expirationTime)
+	_, rowInsertError := appDatabase.Exec("INSERT INTO spotifyaccounts VALUES ($1, $2, $3, $4);", profile.ID, tokens.AccessToken, tokens.RefreshToken, expirationTime)
 	if rowInsertError != nil {
 		return rowInsertError
 	}
 
-	_, rowUpdateError := appDatabase.Exec("UPDATE spotifyAccounts SET spotify_id=$1 WHERE session_id=$2", profile.ID, session)
+	_, rowUpdateError := appDatabase.Exec("UPDATE spotifyaccounts SET spotify_id=$1 WHERE session_id=$2", profile.ID, session)
 	return rowUpdateError
 }
 
@@ -98,7 +98,7 @@ func getSpotifyForSession(session string) (string, *spotifyAuthResponse, error) 
 		return "", nil, scanError
 	}
 	// Get the spotify tokens
-	fields, tokensScanError := appDatabase.QueryRowx("SELECT accessToken, refreshToken FROM spotifyAccounts WHERE id=$1", spotifyID).SliceScan()
+	fields, tokensScanError := appDatabase.QueryRowx("SELECT accessToken, refreshToken FROM spotifyaccounts WHERE id=$1", spotifyID).SliceScan()
 	if tokensScanError != nil { // This row must exist because of the FK relationship so we don't need to test for row count
 		return "", nil, tokensScanError
 	}
