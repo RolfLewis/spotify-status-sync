@@ -113,12 +113,10 @@ func eventsEndpoint(context *gin.Context) {
 
 	// If type is a app_home_opened, answer it
 	if eventWrapper.Type == "app_home_opened" {
-		// Send an acknowledgment
-		context.String(http.StatusOK, "Ok")
-
 		// Check if spotify has been connected yet for this session
 		profileID, _, dbError := getSpotifyForUser(event.User)
 		if dbError != nil {
+			log.Println(dbError)
 			context.String(http.StatusInternalServerError, dbError.Error())
 			return
 		}
@@ -130,6 +128,9 @@ func eventsEndpoint(context *gin.Context) {
 		} else { // Serve an all-set screen
 			createReturningHomepage(event.User)
 		}
+
+		// Send an acknowledgment
+		context.String(http.StatusOK, "Ok")
 	} else {
 		context.String(http.StatusBadRequest, "Not a supported event")
 		log.Fatal("Not a supported event:", event)
