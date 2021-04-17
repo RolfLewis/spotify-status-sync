@@ -50,9 +50,8 @@ func main() {
 		c.HTML(http.StatusOK, "index.tmpl.html", nil)
 	})
 
-	router.GET("/spotify/login", loginFlow)
 	router.GET("/spotify/callback", callbackFlow)
-	router.POST("/interactivity", interactivityEndpoint)
+	router.POST("/slack/interactivity", interactivityEndpoint)
 	router.POST("/slack/events", eventsEndpoint)
 
 	// Create the global spotify client
@@ -79,6 +78,10 @@ type appHomeOpened struct {
 	Tab       string `json:"tab"`
 }
 
+type viewPublishResponse struct {
+	OK bool `json:"ok"`
+}
+
 func eventsEndpoint(context *gin.Context) {
 	// Attempt to parse as a challenge message first, just in case
 	var jsonChallenge eventsChallenge
@@ -92,6 +95,9 @@ func eventsEndpoint(context *gin.Context) {
 	var openedHome appHomeOpened
 	homeError := context.BindJSON(&openedHome)
 	if homeError == nil {
+		// Send an acknowledgment
+		context.String(http.StatusOK, "Ok")
+
 		// Check if spotify has been connected yet for this session
 		profileID, _, dbError := getSpotifyForUser(openedHome.User)
 		if dbError != nil {
@@ -112,8 +118,8 @@ func eventsEndpoint(context *gin.Context) {
 			OAuthURL := spotifyAuthURL + "/authorize?" + queryValues.Encode()
 
 			// Update home view
-			context.JSON(http.StatusOK, `{
-				"user_id": `+openedHome.User+`,
+			newView := `{
+				"user_id": ` + openedHome.User + `,
 				"view":
 				{
 					"type": "home",
@@ -145,13 +151,55 @@ func eventsEndpoint(context *gin.Context) {
 									"emoji": true
 								},
 								"value": "login",
-								"url": "`+OAuthURL+`",
+								"url": "` + OAuthURL + `",
 								"action_id": "button-action"
 							}
 						}
 					]
 				}
-			}`)
+			}`
+
+			// Build request and send
+			viewReq, viewReqError := http.NewRequest(http.MethodPost, spotifyAPIURL+"views.publish", strings.NewReader(newView))
+			if viewReqError != nil {
+				log.Println(viewReqError)
+			}
+
+			// Add the body headers
+			viewReq.Header.Add("Content-Type", "application/json")
+			viewReq.Header.Add("Content-Length", strconv.Itoa(len(newView)))
+
+			// Encode the authorization header
+			bytes := []byte(os.Getenv("SLACK_BEARER_TOKEN"))
+			viewReq.Header.Add("Authorization", "Basic "+base64.StdEncoding.EncodeToString(bytes))
+
+			// Send the request
+			viewResp, viewRespError := spotifyClient.Do(viewReq)
+			if viewRespError != nil {
+				log.Println(viewRespError)
+			}
+			defer viewResp.Body.Close()
+
+			// Check status codes
+			if viewResp.StatusCode != http.StatusOK {
+				log.Println("Non-200 status code from view.publish endpoint: " + strconv.Itoa(viewResp.StatusCode) + " / " + viewResp.Status)
+			}
+
+			// Read the tokens
+			jsonBytes, readError := ioutil.ReadAll(viewResp.Body)
+			if readError != nil {
+				log.Println(readError)
+			}
+
+			var responseObject viewPublishResponse
+			jsonError := json.Unmarshal(jsonBytes, &responseObject)
+			if jsonError != nil {
+				log.Println(jsonError)
+			}
+
+			if !responseObject.OK {
+				log.Println("VIEW UPDATE NOT OKAY")
+			}
 		} else { // Serve an all-set screen
 			context.JSON(http.StatusOK, `{
 				"user_id": `+openedHome.User+`,
@@ -190,35 +238,6 @@ func interactivityEndpoint(context *gin.Context) {
 
 func getLoginRedirectURL() string {
 	return appURL + "callback"
-}
-
-func loginFlow(context *gin.Context) {
-	callbackURL := getLoginRedirectURL()
-
-	// Read user id (passed as state)
-	user := context.Query("state")
-
-	// Check if spotify has been connected yet for this session
-	profileID, tokens, dbError := getSpotifyForUser(user)
-	if dbError != nil {
-		context.String(http.StatusInternalServerError, dbError.Error())
-		return
-	}
-
-	if profileID == "" { // Spotify has not been connected in this session yet
-		// Set the query values
-		queryValues := url.Values{}
-		queryValues.Set("client_id", os.Getenv("SPOTIFY_CLIENT_ID"))
-		queryValues.Set("response_type", "code")
-		queryValues.Set("redirect_uri", url.PathEscape(callbackURL))
-		queryValues.Set("scope", "user-read-currently-playing")
-
-		// Redirect to spotify OAuth page
-		OAuthURL := spotifyAuthURL + "/authorize?" + queryValues.Encode()
-		context.Redirect(http.StatusPermanentRedirect, OAuthURL)
-	} else { // Spotify already exists for this session
-		context.String(http.StatusOK, "Spotify already connected for this session: "+profileID+" / "+tokens.AccessToken)
-	}
 }
 
 func callbackFlow(context *gin.Context) {
