@@ -93,16 +93,19 @@ func callbackFlow(context *gin.Context) {
 	tokens, exchangeError := exchangeCodeForTokens(code)
 	if exchangeError != nil {
 		context.String(http.StatusInternalServerError, exchangeError.Error())
+		return
 	}
 
 	// Get the user's profile information
 	profile, profileError := getProfileForTokens(*tokens)
 	if profileError != nil {
 		context.String(http.StatusInternalServerError, profileError.Error())
+		return
 	}
 
 	if profile == nil {
 		context.String(http.StatusInternalServerError, "No profile returned from GET")
+		return
 	}
 
 	context.String(http.StatusOK, profile.DisplayName+" "+profile.ID)
