@@ -120,7 +120,7 @@ func eventsEndpoint(context *gin.Context) {
 		}
 	} else {
 		context.String(http.StatusBadRequest, "Not a supported event")
-		log.Fatal("Not a supported event")
+		log.Fatal("Not a supported event:", event)
 	}
 }
 
