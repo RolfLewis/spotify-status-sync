@@ -17,7 +17,8 @@ import (
 )
 
 var appURL = "https://spotify-status-sync.herokuapp.com/"
-var spotifyBaseURL = "https://accounts.spotify.com/"
+var spotifyAuthURL = "https://accounts.spotify.com/"
+var spotifyAPIURL = "https://api.spotify.com/v1/"
 var spotifyClient *http.Client
 
 type spotifyAuthResponse struct {
@@ -26,6 +27,11 @@ type spotifyAuthResponse struct {
 	Scope        string `json:"scope"`
 	ExpiresIn    int    `json:"expires_in"`
 	RefreshToken string `json:"refresh_token"`
+}
+
+type spotifyProfile struct {
+	DisplayName string `json:"display_name"`
+	ID          string `json:"id"`
 }
 
 func main() {
@@ -68,19 +74,37 @@ func loginFlow(context *gin.Context) {
 	queryValues.Set("scope", "user-read-currently-playing")
 
 	// Redirect to spotify OAuth page
-	spotifyAuthURL := spotifyBaseURL + "/authorize?" + queryValues.Encode()
-	context.Redirect(http.StatusPermanentRedirect, spotifyAuthURL)
+	OAuthURL := spotifyAuthURL + "/authorize?" + queryValues.Encode()
+	context.Redirect(http.StatusPermanentRedirect, OAuthURL)
 }
 
 func callbackFlow(context *gin.Context) {
-	code := context.Query("code")
+	// Check for error from Spotify
 	errorMsg := context.Query("error")
-
 	if errorMsg != "" {
 		context.String(http.StatusInternalServerError, errorMsg)
 		return
 	}
 
+	// Read auth code
+	code := context.Query("code")
+
+	// Exchange code for tokens
+	tokens, exchangeError := exchangeCodeForTokens(code)
+	if exchangeError != nil {
+		context.String(http.StatusInternalServerError, exchangeError.Error())
+	}
+
+	// Get the user's profile information
+	profile, profileError := getProfileForTokens(*tokens)
+	if profileError != nil {
+		context.String(http.StatusInternalServerError, exchangeError.Error())
+	}
+
+	context.String(http.StatusOK, profile.DisplayName+" "+profile.ID)
+}
+
+func exchangeCodeForTokens(code string) (*spotifyAuthResponse, error) {
 	// Set the query values
 	queryValues := url.Values{}
 	queryValues.Set("grant_type", "authorization_code")
@@ -89,63 +113,79 @@ func callbackFlow(context *gin.Context) {
 	urlEncodedBody := queryValues.Encode()
 
 	// Get the auth and refresh tokens
-	req, reqError := http.NewRequest(http.MethodPost, spotifyBaseURL+"api/token", strings.NewReader(urlEncodedBody))
-	if reqError != nil {
-		context.String(http.StatusInternalServerError, reqError.Error())
-		return
+	authReq, authReqError := http.NewRequest(http.MethodPost, spotifyAuthURL+"api/token", strings.NewReader(urlEncodedBody))
+	if authReqError != nil {
+		return nil, authReqError
 	}
 
 	// Add the body headers
-	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Add("Content-Length", strconv.Itoa(len(urlEncodedBody)))
+	authReq.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	authReq.Header.Add("Content-Length", strconv.Itoa(len(urlEncodedBody)))
 
 	// Encode the authorization header
 	bytes := []byte(os.Getenv("SPOTIFY_CLIENT_ID") + ":" + os.Getenv("SPOTIFY_CLIENT_SECRET"))
-	req.Header.Add("Authorization", "Basic "+base64.StdEncoding.EncodeToString(bytes))
+	authReq.Header.Add("Authorization", "Basic "+base64.StdEncoding.EncodeToString(bytes))
 
 	// Send the request
-	resp, respError := spotifyClient.Do(req)
-	if respError != nil {
-		context.String(http.StatusInternalServerError, respError.Error())
-		return
+	authResp, authRespError := spotifyClient.Do(authReq)
+	if authRespError != nil {
+		return nil, authRespError
 	}
-	defer resp.Body.Close()
+	defer authResp.Body.Close()
 
 	// Check status codes
-	if resp.StatusCode != http.StatusOK {
-		context.String(http.StatusInternalServerError, "Non-200 status code from auth endpoint: "+strconv.Itoa(resp.StatusCode)+" / "+resp.Status)
-		return
+	if authResp.StatusCode != http.StatusOK {
+		return nil, errors.New("Non-200 status code from auth endpoint: " + strconv.Itoa(authResp.StatusCode) + " / " + authResp.Status)
 	}
 
 	// Read the tokens
-	jsonBytes, readError := ioutil.ReadAll(resp.Body)
+	jsonBytes, readError := ioutil.ReadAll(authResp.Body)
 	if readError != nil {
-		context.String(http.StatusInternalServerError, readError.Error())
-		return
+		return nil, readError
 	}
-
-	log.Println(jsonBytes)
 
 	var tokens spotifyAuthResponse
 	jsonError := json.Unmarshal(jsonBytes, &tokens)
 	if jsonError != nil {
-		context.String(http.StatusInternalServerError, jsonError.Error())
-		return
+		return nil, jsonError
 	}
 
-	context.String(http.StatusOK, tokens.AccessToken)
+	return &tokens, nil
 }
 
-func writeSpotifyToken(token string) {
-	tokenFile, fileError := os.Create("spotify-token")
-	if fileError != nil {
-		log.Fatal(fileError)
+func getProfileForTokens(tokens spotifyAuthResponse) (*spotifyProfile, error) {
+	// Build request
+	profReq, profReqError := http.NewRequest(http.MethodGet, spotifyAPIURL+"me", nil)
+	if profReqError != nil {
+		return nil, profReqError
 	}
-	written, writeError := tokenFile.WriteString(token)
-	if writeError != nil {
-		log.Fatal(writeError)
+
+	// Add auth
+	profReq.Header.Add("Authorization", tokens.AccessToken)
+
+	// Send the request
+	profResp, profRespError := spotifyClient.Do(profReq)
+	if profRespError != nil {
+		return nil, profRespError
 	}
-	if written != len(token) {
-		log.Fatal(errors.New("Full token not written"))
+	defer profResp.Body.Close()
+
+	// Check status codes
+	if profResp.StatusCode != http.StatusOK {
+		return nil, errors.New("Non-200 status code from profile endpoint: " + strconv.Itoa(profResp.StatusCode) + " / " + profResp.Status)
 	}
+
+	// Read the tokens
+	jsonBytes, readError := ioutil.ReadAll(profResp.Body)
+	if readError != nil {
+		return nil, readError
+	}
+
+	var profile spotifyProfile
+	jsonError := json.Unmarshal(jsonBytes, &profile)
+	if jsonError != nil {
+		return nil, jsonError
+	}
+
+	return &profile, nil
 }
