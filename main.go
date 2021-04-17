@@ -113,75 +113,67 @@ func eventsEndpoint(context *gin.Context) {
 
 			// Update home view
 			context.JSON(http.StatusOK, `{
-				"blocks": [
-					{
-						"type": "divider"
-					},
-					{
-						"type": "section",
-						"text": {
-							"type": "mrkdwn",
-							"text": "Hello! Thanks for using the Spotify / Slack Status Sync app. To get started, simply click the button below and log in through Spotify to connect your account."
-						}
-					},
-					{
-						"type": "divider"
-					},
-					{
-						"type": "section",
-						"text": {
-							"type": "mrkdwn",
-							"text": "*Log in with spotify here:*"
+				"user_id": `+openedHome.User+`,
+				"view":
+				{
+					"type": "home",
+					"blocks": [
+						{
+							"type": "divider"
 						},
-						"accessory": {
-							"type": "button",
+						{
+							"type": "section",
 							"text": {
-								"type": "plain_text",
-								"text": "Log in to Spotify",
-								"emoji": true
+								"type": "mrkdwn",
+								"text": "Hello! Thanks for using the Spotify / Slack Status Sync app. To get started, simply click the button below and log in through Spotify to connect your account."
+							}
+						},
+						{
+							"type": "divider"
+						},
+						{
+							"type": "section",
+							"text": {
+								"type": "mrkdwn",
+								"text": "*Log in with spotify here:*"
 							},
-							"value": "login",
-							"url": "`+OAuthURL+`",
-							"action_id": "button-action"
+							"accessory": {
+								"type": "button",
+								"text": {
+									"type": "plain_text",
+									"text": "Log in to Spotify",
+									"emoji": true
+								},
+								"value": "login",
+								"url": "`+OAuthURL+`",
+								"action_id": "button-action"
+							}
 						}
-					}
-				]
+					]
+				}
 			}`)
 		} else { // Serve an all-set screen
 			context.JSON(http.StatusOK, `{
-				"blocks": [
-					{
-						"type": "divider"
-					},
-					{
-						"type": "section",
-						"text": {
-							"type": "mrkdwn",
-							"text": "You're all set. Thanks."
-						}
-					},
-					{
-						"type": "divider"
-					},
-					{
-						"type": "section",
-						"text": {
-							"type": "mrkdwn",
-							"text": "*Log in with spotify here:*"
+				"user_id": `+openedHome.User+`,
+				"view":
+				{
+					"type": "home",
+					"blocks": [
+						{
+							"type": "divider"
 						},
-						"accessory": {
-							"type": "button",
+						{
+							"type": "section",
 							"text": {
-								"type": "plain_text",
-								"text": "Log in to Spotify",
-								"emoji": true
-							},
-							"value": "login",
-							"url": "https://google.com",
-							"action_id": "button-action"
-						}
-					}
-				]
+								"type": "mrkdwn",
+								"text": "Hello! You're good to go."
+							}
+						},
+						{
+							"type": "divider"
+						},
+					]
+				}
 			}`)
 		}
 	}
@@ -194,41 +186,6 @@ func interactivityEndpoint(context *gin.Context) {
 		log.Println(jsonError.Error())
 	}
 	log.Println(jsonData)
-	context.JSON(http.StatusOK, `{
-		"blocks": [
-			{
-				"type": "divider"
-			},
-			{
-				"type": "section",
-				"text": {
-					"type": "mrkdwn",
-					"text": "Hello! Thanks for using the Spotify / Slack Status Sync app. To get started, simply click the button below and log in through Spotify to connect your account."
-				}
-			},
-			{
-				"type": "divider"
-			},
-			{
-				"type": "section",
-				"text": {
-					"type": "mrkdwn",
-					"text": "*Log in with spotify here:*"
-				},
-				"accessory": {
-					"type": "button",
-					"text": {
-						"type": "plain_text",
-						"text": "Log in to Spotify",
-						"emoji": true
-					},
-					"value": "login",
-					"url": "https://google.com",
-					"action_id": "button-action"
-				}
-			}
-		]
-	}`)
 }
 
 func getLoginRedirectURL() string {
