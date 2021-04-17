@@ -105,125 +105,15 @@ func eventsEndpoint(context *gin.Context) {
 			return
 		}
 
+		log.Println("Spotify for user:", profileID)
+
 		if profileID == "" { // Serve a new welcome screen
-			// Set the query values
-			queryValues := url.Values{}
-			queryValues.Set("client_id", os.Getenv("SPOTIFY_CLIENT_ID"))
-			queryValues.Set("response_type", "code")
-			queryValues.Set("redirect_uri", getLoginRedirectURL())
-			queryValues.Set("scope", "user-read-currently-playing")
-			queryValues.Set("state", openedHome.User)
-
-			// Link to spotify OAuth page
-			OAuthURL := spotifyAuthURL + "/authorize?" + queryValues.Encode()
-
-			// Update home view
-			newView := `{
-				"user_id": ` + openedHome.User + `,
-				"view":
-				{
-					"type": "home",
-					"blocks": [
-						{
-							"type": "divider"
-						},
-						{
-							"type": "section",
-							"text": {
-								"type": "mrkdwn",
-								"text": "Hello! Thanks for using the Spotify / Slack Status Sync app. To get started, simply click the button below and log in through Spotify to connect your account."
-							}
-						},
-						{
-							"type": "divider"
-						},
-						{
-							"type": "section",
-							"text": {
-								"type": "mrkdwn",
-								"text": "*Log in with spotify here:*"
-							},
-							"accessory": {
-								"type": "button",
-								"text": {
-									"type": "plain_text",
-									"text": "Log in to Spotify",
-									"emoji": true
-								},
-								"value": "login",
-								"url": "` + OAuthURL + `",
-								"action_id": "button-action"
-							}
-						}
-					]
-				}
-			}`
-
-			// Build request and send
-			viewReq, viewReqError := http.NewRequest(http.MethodPost, spotifyAPIURL+"views.publish", strings.NewReader(newView))
-			if viewReqError != nil {
-				log.Println(viewReqError)
-			}
-
-			// Add the body headers
-			viewReq.Header.Add("Content-Type", "application/json")
-			viewReq.Header.Add("Content-Length", strconv.Itoa(len(newView)))
-
-			// Encode the authorization header
-			bytes := []byte(os.Getenv("SLACK_BEARER_TOKEN"))
-			viewReq.Header.Add("Authorization", "Basic "+base64.StdEncoding.EncodeToString(bytes))
-
-			// Send the request
-			viewResp, viewRespError := spotifyClient.Do(viewReq)
-			if viewRespError != nil {
-				log.Println(viewRespError)
-			}
-			defer viewResp.Body.Close()
-
-			// Check status codes
-			if viewResp.StatusCode != http.StatusOK {
-				log.Println("Non-200 status code from view.publish endpoint: " + strconv.Itoa(viewResp.StatusCode) + " / " + viewResp.Status)
-			}
-
-			// Read the tokens
-			jsonBytes, readError := ioutil.ReadAll(viewResp.Body)
-			if readError != nil {
-				log.Println(readError)
-			}
-
-			var responseObject viewPublishResponse
-			jsonError := json.Unmarshal(jsonBytes, &responseObject)
-			if jsonError != nil {
-				log.Println(jsonError)
-			}
-
-			if !responseObject.OK {
-				log.Println("VIEW UPDATE NOT OKAY")
-			}
+			createNewUserHomepage(openedHome.User)
 		} else { // Serve an all-set screen
-			context.JSON(http.StatusOK, `{
-				"user_id": `+openedHome.User+`,
-				"view":
-				{
-					"type": "home",
-					"blocks": [
-						{
-							"type": "divider"
-						},
-						{
-							"type": "section",
-							"text": {
-								"type": "mrkdwn",
-								"text": "Hello! You're good to go."
-							}
-						},
-						{
-							"type": "divider"
-						},
-					]
-				}
-			}`)
+			createReturningHomepage(openedHome.User)
 		}
+	} else {
+		log.Fatal("Not a supported event")
 	}
 }
 
@@ -369,6 +259,103 @@ func getProfileForTokens(tokens spotifyAuthResponse) (*spotifyProfile, error) {
 	return &profile, nil
 }
 
-func createAndSendHomepageForUser(user string) {
+func createNewUserHomepage(user string) {
+	// Set the query values
+	queryValues := url.Values{}
+	queryValues.Set("client_id", os.Getenv("SPOTIFY_CLIENT_ID"))
+	queryValues.Set("response_type", "code")
+	queryValues.Set("redirect_uri", getLoginRedirectURL())
+	queryValues.Set("scope", "user-read-currently-playing")
+	queryValues.Set("state", user)
 
+	// Link to spotify OAuth page
+	OAuthURL := spotifyAuthURL + "/authorize?" + queryValues.Encode()
+
+	// Update home view
+	newView := `{
+		"user_id": ` + user + `,
+		"view":
+		{
+			"type": "home",
+			"blocks": [
+				{
+					"type": "divider"
+				},
+				{
+					"type": "section",
+					"text": {
+						"type": "mrkdwn",
+						"text": "Hello! Thanks for using the Spotify / Slack Status Sync app. To get started, simply click the button below and log in through Spotify to connect your account."
+					}
+				},
+				{
+					"type": "divider"
+				},
+				{
+					"type": "section",
+					"text": {
+						"type": "mrkdwn",
+						"text": "*Log in with spotify here:*"
+					},
+					"accessory": {
+						"type": "button",
+						"text": {
+							"type": "plain_text",
+							"text": "Log in to Spotify",
+							"emoji": true
+						},
+						"value": "login",
+						"url": "` + OAuthURL + `",
+						"action_id": "button-action"
+					}
+				}
+			]
+		}
+	}`
+
+	// Build request and send
+	viewReq, viewReqError := http.NewRequest(http.MethodPost, spotifyAPIURL+"views.publish", strings.NewReader(newView))
+	if viewReqError != nil {
+		log.Println(viewReqError)
+	}
+
+	// Add the body headers
+	viewReq.Header.Add("Content-Type", "application/json")
+	viewReq.Header.Add("Content-Length", strconv.Itoa(len(newView)))
+
+	// Encode the authorization header
+	bytes := []byte(os.Getenv("SLACK_BEARER_TOKEN"))
+	viewReq.Header.Add("Authorization", "Basic "+base64.StdEncoding.EncodeToString(bytes))
+
+	// Send the request
+	viewResp, viewRespError := spotifyClient.Do(viewReq)
+	if viewRespError != nil {
+		log.Println(viewRespError)
+	}
+	defer viewResp.Body.Close()
+
+	// Check status codes
+	if viewResp.StatusCode != http.StatusOK {
+		log.Println("Non-200 status code from view.publish endpoint: " + strconv.Itoa(viewResp.StatusCode) + " / " + viewResp.Status)
+	}
+
+	// Read the tokens
+	jsonBytes, readError := ioutil.ReadAll(viewResp.Body)
+	if readError != nil {
+		log.Println(readError)
+	}
+
+	var responseObject viewPublishResponse
+	jsonError := json.Unmarshal(jsonBytes, &responseObject)
+	if jsonError != nil {
+		log.Println(jsonError)
+	}
+
+	if !responseObject.OK {
+		log.Println("VIEW UPDATE NOT OKAY")
+	}
+}
+
+func createReturningHomepage(user string) {
+	log.Println(user, "in returing homepage")
 }
