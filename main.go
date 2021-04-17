@@ -67,8 +67,46 @@ func main() {
 
 func interactivityEndpoint(context *gin.Context) {
 	var jsonData string
-	context.BindJSON(&jsonData)
+	jsonError := context.BindJSON(&jsonData)
+	if jsonError != nil {
+		log.Println(jsonError.Error())
+	}
 	log.Println(jsonData)
+	context.JSON(http.StatusOK, `{
+		"blocks": [
+			{
+				"type": "divider"
+			},
+			{
+				"type": "section",
+				"text": {
+					"type": "mrkdwn",
+					"text": "Hello! Thanks for using the Spotify / Slack Status Sync app. To get started, simply click the button below and log in through Spotify to connect your account."
+				}
+			},
+			{
+				"type": "divider"
+			},
+			{
+				"type": "section",
+				"text": {
+					"type": "mrkdwn",
+					"text": "*Log in with spotify here:*"
+				},
+				"accessory": {
+					"type": "button",
+					"text": {
+						"type": "plain_text",
+						"text": "Log in to Spotify",
+						"emoji": true
+					},
+					"value": "login",
+					"url": "https://google.com",
+					"action_id": "button-action"
+				}
+			}
+		]
+	}`)
 }
 
 func getLoginRedirectURL() string {
