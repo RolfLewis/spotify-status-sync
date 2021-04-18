@@ -48,7 +48,7 @@ func CreateNewUserHomepage(user string, client *http.Client) error {
 					"type": "section",
 					"text": {
 						"type": "mrkdwn",
-						"text": "This application serves a singular purpose. It syncs your currecntly playing spotify track into slack as your current status. It will not overwrite any other statuses like calendar status, manually set statuses, or OOO messages. It does not depend on Spotify Premium, so it will not cost you anything to use."
+						"text": "This application serves a singular purpose. It syncs your currently playing spotify track into slack as your current status. It will not overwrite any other statuses like calendar status, manually set statuses, or OOO messages. It does not depend on Spotify Premium, so it will not cost you anything to use."
 					}
 				},
 				{
@@ -99,7 +99,7 @@ func CreateNewUserHomepage(user string, client *http.Client) error {
 					"type": "section",
 					"text": {
 						"type": "mrkdwn",
-						"text": "Click this button to be redirected to the spotify OAuth page:"
+						"text": "Click this button to be redirected to the Spotify OAuth page:"
 					},
 					"accessory": {
 						"type": "button",
@@ -142,7 +142,7 @@ func CreateReturningHomepage(user string, client *http.Client) error {
 					"type": "section",
 					"text": {
 						"type": "mrkdwn",
-						"text": "This application serves a singular purpose. It syncs your currecntly playing spotify track into slack as your current status. It will not overwrite any other statuses like calendar status, manually set statuses, or OOO messages. It does not depend on Spotify Premium, so it will not cost you anything to use."
+						"text": "This application serves a singular purpose. It syncs your currently playing spotify track into slack as your current status. It will not overwrite any other statuses like calendar status, manually set statuses, or OOO messages. It does not depend on Spotify Premium, so it will not cost you anything to use."
 					}
 				},
 				{
