@@ -79,7 +79,7 @@ func addSpotifyToUser(user string, profile spotifyProfile, tokens spotifyAuthRes
 		return rowInsertError
 	}
 
-	_, rowUpdateError := appDatabase.Exec("UPDATE spotifyaccounts SET spotify_id=$1 WHERE session_id=$2", profile.ID, user)
+	_, rowUpdateError := appDatabase.Exec("UPDATE slackaccounts SET spotify_id=$1 WHERE id=$2", profile.ID, user)
 	return rowUpdateError
 }
 
