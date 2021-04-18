@@ -35,13 +35,10 @@ func CreateNewUserHomepage(user string, client *http.Client) error {
 			"type": "home",
 			"blocks": [
 				{
-					"type": "divider"
-				},
-				{
 					"type": "section",
 					"text": {
 						"type": "mrkdwn",
-						"text": "Hello! Thanks for using the Spotify / Slack Status Sync app. To get started, simply click the button below and log in through Spotify to connect your account."
+						"text": "*Description*"
 					}
 				},
 				{
@@ -51,14 +48,65 @@ func CreateNewUserHomepage(user string, client *http.Client) error {
 					"type": "section",
 					"text": {
 						"type": "mrkdwn",
-						"text": "*Log in with spotify here:*"
+						"text": "This application serves a singular purpose. It syncs your currecntly playing spotify track into slack as your current status. It will not overwrite any other statuses like calendar status, manually set statuses, or OOO messages. It does not depend on Spotify Premium, so it will not cost you anything to use."
+					}
+				},
+				{
+					"type": "divider"
+				},
+				{
+					"type": "section",
+					"text": {
+						"type": "mrkdwn",
+						"text": "*Authorization / Security*"
+					}
+				},
+				{
+					"type": "section",
+					"text": {
+						"type": "mrkdwn",
+						"text": "This application utilizes the industry standard OAuth2.0 flow to securely interact with both Spotify and Slack. When you select the login button below for Spotify, you log in to Spotify directly and authorize this application to interact with your account in very specific ways. These 'ways' are called scopes, and this application only asks for a scope which allows it to see your currently playing song. That's no access to private profile information, no song history, and no playlist access."
+					}
+				},
+				{
+					"type": "divider"
+				},
+				{
+					"type": "section",
+					"text": {
+						"type": "mrkdwn",
+						"text": "*Disconnecting*"
+					}
+				},
+				{
+					"type": "section",
+					"text": {
+						"type": "mrkdwn",
+						"text": "You can disconnect your Slack and Spotify accounts at any time. Once you have them connected, this screen will update to include a 'disconnect' button. That button will immediately erase all information that the app saves about your accounts and clear your status if it is set by the app."
+					}
+				},
+				{
+					"type": "divider"
+				},
+				{
+					"type": "section",
+					"text": {
+						"type": "mrkdwn",
+						"text": "*Getting Started*"
+					}
+				},
+				{
+					"type": "section",
+					"text": {
+						"type": "mrkdwn",
+						"text": "Click this button to be redirected to the spotify OAuth page:"
 					},
 					"accessory": {
 						"type": "button",
 						"text": {
 							"type": "plain_text",
-							"text": "Log in to Spotify",
-							"emoji": false
+							"text": "Connect Spotify",
+							"emoji": true
 						},
 						"value": "spotify_login_button",
 						"url": "` + OAuthURL + `",
@@ -81,13 +129,10 @@ func CreateReturningHomepage(user string, client *http.Client) error {
 			"type": "home",
 			"blocks": [
 				{
-					"type": "divider"
-				},
-				{
 					"type": "section",
 					"text": {
 						"type": "mrkdwn",
-						"text": "You're all set."
+						"text": "*Description*"
 					}
 				},
 				{
@@ -97,14 +142,65 @@ func CreateReturningHomepage(user string, client *http.Client) error {
 					"type": "section",
 					"text": {
 						"type": "mrkdwn",
-						"text": "*Disconnect your Spotify account here:*"
+						"text": "This application serves a singular purpose. It syncs your currecntly playing spotify track into slack as your current status. It will not overwrite any other statuses like calendar status, manually set statuses, or OOO messages. It does not depend on Spotify Premium, so it will not cost you anything to use."
+					}
+				},
+				{
+					"type": "divider"
+				},
+				{
+					"type": "section",
+					"text": {
+						"type": "mrkdwn",
+						"text": "*Authorization / Security*"
+					}
+				},
+				{
+					"type": "section",
+					"text": {
+						"type": "mrkdwn",
+						"text": "This application utilizes the industry standard OAuth2.0 flow to securely interact with both Spotify and Slack. When you select the login button below for Spotify, you log in to Spotify directly and authorize this application to interact with your account in very specific ways. These 'ways' are called scopes, and this application only asks for a scope which allows it to see your currently playing song. That's no access to private profile information, no song history, and no playlist access."
+					}
+				},
+				{
+					"type": "divider"
+				},
+				{
+					"type": "section",
+					"text": {
+						"type": "mrkdwn",
+						"text": "*Disconnecting*"
+					}
+				},
+				{
+					"type": "section",
+					"text": {
+						"type": "mrkdwn",
+						"text": "If you would like to disconnect your Slack and Spotify accounts, click the button below. That button will immediately erase all information that the app saves about your accounts and clear your status if it is set by the app."
+					}
+				},
+				{
+					"type": "divider"
+				},
+				{
+					"type": "section",
+					"text": {
+						"type": "mrkdwn",
+						"text": "*Erase Data and Disconnect*"
+					}
+				},
+				{
+					"type": "section",
+					"text": {
+						"type": "mrkdwn",
+						"text": "Click this button to erase application data and disconnect:"
 					},
 					"accessory": {
 						"type": "button",
 						"text": {
 							"type": "plain_text",
-							"text": "Disconnect",
-							"emoji": false
+							"text": "Disconnect / Delete",
+							"emoji": true
 						},
 						"value": "spotify_disconnect_button",
 						"action_id": "spotify_disconnect_button"
