@@ -1,74 +1,21 @@
-package main
+package database
 
 import (
 	"database/sql"
 	"errors"
-	"log"
-	"os"
 	"time"
-
-	"github.com/jmoiron/sqlx"
-	_ "github.com/lib/pq"
 )
 
-var appDatabase *sqlx.DB
-
-var tables = []string{
-	"spotifyaccounts",
-	"slackaccounts",
+type SpotifyAuthResponse struct {
+	AccessToken  string `json:"access_token"`
+	TokenType    string `json:"token_type"`
+	Scope        string `json:"scope"`
+	ExpiresIn    int    `json:"expires_in"`
+	RefreshToken string `json:"refresh_token"`
 }
 
-func connectToDatabase() {
-	database, dbError := sqlx.Connect("postgres", os.Getenv("DATABASE_URL"))
-	if dbError != nil {
-		log.Panic(dbError)
-	}
-	// Performance Settings
-	database.SetConnMaxLifetime(0)
-	database.SetMaxOpenConns(10)
-	appDatabase = database
-}
-
-func disconnectDatabase() {
-	dbError := appDatabase.Close()
-	if dbError != nil {
-		log.Println(dbError)
-	}
-}
-
-// Rolls back the transaction and returns the causing error. If rollback fails, returns that error instead.
-func rollbackOnError(transaction *sqlx.Tx, err error) error {
-	rollbackError := transaction.Rollback()
-	if rollbackError != nil {
-		return rollbackError
-	}
-	return err
-}
-
-func validateSchema() {
-	createTableIfNotExists := func(tableParam string, createCmd string) {
-		// Check if the table exists
-		var tableName string
-		getError := appDatabase.Get(&tableName, "select table_name from information_schema.tables where table_name=$1", tableParam)
-		if getError != nil && getError != sql.ErrNoRows {
-			log.Panic(getError)
-		}
-
-		if getError != nil {
-			_, tableCreateError := appDatabase.Exec(createCmd)
-			if tableCreateError != nil {
-				log.Println("Error when creating", tableParam, ":", createCmd)
-				log.Panic(tableCreateError)
-			}
-		}
-	}
-
-	createTableIfNotExists("spotifyaccounts", `CREATE TABLE spotifyaccounts (id text CONSTRAINT spotify_pk PRIMARY KEY NOT null,
-		accessToken text, refreshToken text, expirationAt timestamp);`)
-
-	createTableIfNotExists("slackaccounts", `CREATE TABLE slackaccounts (id text CONSTRAINT slack_pk PRIMARY KEY NOT null,
-		accessToken text, refreshToken text, expirationAt timestamp,
-		spotify_id text, CONSTRAINT spotify_fk FOREIGN KEY(spotify_id) REFERENCES spotifyaccounts(id));`)
+type SpotifyProfile struct {
+	ID string `json:"id"`
 }
 
 func addNewUser(user string) error {
@@ -87,8 +34,26 @@ func userExists(user string) (bool, error) {
 	return true, nil
 }
 
+func EnsureUserExists(user string) error {
+	// Make sure that a user record exists for the user
+	exists, existsError := userExists(user)
+	if existsError != nil {
+		return existsError
+	}
+
+	// Create a user record if needed
+	if !exists {
+		userAddError := addNewUser(user)
+		if userAddError != nil {
+			return userAddError
+		}
+	}
+
+	return nil
+}
+
 // Adds the spotify information to the DB using a transaction. Rolls back on any error. Returns rollback error if one occurs.
-func addSpotifyToUser(user string, profile spotifyProfile, tokens spotifyAuthResponse) error {
+func AddSpotifyToUser(user string, profile SpotifyProfile, tokens SpotifyAuthResponse) error {
 	// Open a transaction on the DB - roll it back if anything fails
 	transaction, transactionError := appDatabase.Beginx()
 	if transactionError != nil {
@@ -129,7 +94,7 @@ func addSpotifyToUser(user string, profile spotifyProfile, tokens spotifyAuthRes
 	return nil
 }
 
-func getSpotifyForUser(user string) (string, *spotifyAuthResponse, error) {
+func GetSpotifyForUser(user string) (string, *SpotifyAuthResponse, error) {
 	// Get the spotify ID from the session
 	var spotifyID string
 	scanError := appDatabase.QueryRowx("SELECT spotify_id FROM slackaccounts WHERE id=$1 AND spotify_id IS NOT null", user).Scan(&spotifyID)
@@ -144,13 +109,13 @@ func getSpotifyForUser(user string) (string, *spotifyAuthResponse, error) {
 		return "", nil, tokensScanError
 	}
 	// Read the tokens into an object and return
-	return spotifyID, &spotifyAuthResponse{
+	return spotifyID, &SpotifyAuthResponse{
 		AccessToken:  fields[0].(string),
 		RefreshToken: fields[1].(string),
 	}, nil
 }
 
-func deleteAllDataForUser(user string) error {
+func DeleteAllDataForUser(user string) error {
 	// Get the spotify account id for the user
 	var spotifyID string
 	scanError := appDatabase.QueryRowx("SELECT spotify_id FROM slackaccounts WHERE id=$1 AND spotify_id IS NOT null", user).Scan(&spotifyID)

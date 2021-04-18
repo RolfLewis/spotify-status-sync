@@ -4,42 +4,23 @@ import (
 	"bytes"
 	"crypto/hmac"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"io/ioutil"
 	"log"
 	"math"
 	"net/http"
-	"net/url"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	_ "github.com/heroku/x/hmetrics/onload"
-	"rolflewis.com/spotify-status-sync/src/oauth/views"
+	"rolflewis.com/spotify-status-sync/src/database"
+	"rolflewis.com/spotify-status-sync/src/spotify"
+	"rolflewis.com/spotify-status-sync/src/views"
 )
 
-var appURL = "https://spotify-status-sync.herokuapp.com/"
-var slackAPIURL = "https://slack.com/api/"
-var spotifyAuthURL = "https://accounts.spotify.com/"
-var spotifyAPIURL = "https://api.spotify.com/v1/"
 var globalClient *http.Client
-
-type spotifyAuthResponse struct {
-	AccessToken  string `json:"access_token"`
-	TokenType    string `json:"token_type"`
-	Scope        string `json:"scope"`
-	ExpiresIn    int    `json:"expires_in"`
-	RefreshToken string `json:"refresh_token"`
-}
-
-type spotifyProfile struct {
-	ID string `json:"id"`
-}
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
@@ -67,8 +48,8 @@ func main() {
 	globalClient = http.DefaultClient
 
 	// Database setup
-	connectToDatabase()
-	validateSchema()
+	database.ConnectToDatabase()
+	database.ValidateSchema()
 
 	router.Run(":" + port)
 }
@@ -145,24 +126,6 @@ type event struct {
 	Tab       string `json:"tab"`
 }
 
-func ensureUserExists(user string) error {
-	// Make sure that a user record exists for the user
-	exists, existsError := userExists(user)
-	if existsError != nil {
-		return existsError
-	}
-
-	// Create a user record if needed
-	if !exists {
-		userAddError := addNewUser(user)
-		if userAddError != nil {
-			return userAddError
-		}
-	}
-
-	return nil
-}
-
 func eventsEndpoint(context *gin.Context) {
 	// Ensure is from slack and is secure
 	if !isSecureFromSlack(context) {
@@ -186,14 +149,14 @@ func eventsEndpoint(context *gin.Context) {
 	// Extract the inner event
 	event := wrapper.Event
 
-	if internalError(ensureUserExists(event.User), context) {
+	if internalError(database.EnsureUserExists(event.User), context) {
 		return
 	}
 
 	// If type is a app_home_opened, answer it
 	if event.Type == "app_home_opened" {
 		// Check if spotify has been connected yet for this session
-		profileID, _, dbError := getSpotifyForUser(event.User)
+		profileID, _, dbError := database.GetSpotifyForUser(event.User)
 		if internalError(dbError, context) {
 			return
 		}
@@ -221,7 +184,7 @@ func eventsEndpoint(context *gin.Context) {
 }
 
 func disconnectHelper(user string) error {
-	deleteError := deleteAllDataForUser(user)
+	deleteError := database.DeleteAllDataForUser(user)
 	if deleteError != nil {
 		return deleteError
 	}
@@ -338,10 +301,6 @@ func interactivityEndpoint(context *gin.Context) {
 	context.String(http.StatusOK, "Interaction Processed.")
 }
 
-func getLoginRedirectURL() string {
-	return appURL + "spotify/callback"
-}
-
 func callbackFlow(context *gin.Context) {
 	// Check for error from Spotify
 	errorMsg := context.Query("error")
@@ -364,18 +323,18 @@ func callbackFlow(context *gin.Context) {
 	}
 
 	// Make sure we have a user record for the user
-	if internalError(ensureUserExists(user), context) {
+	if internalError(database.EnsureUserExists(user), context) {
 		return
 	}
 
 	// Exchange code for tokens
-	tokens, exchangeError := exchangeCodeForTokens(code)
+	tokens, exchangeError := spotify.ExchangeCodeForTokens(code, globalClient)
 	if internalError(exchangeError, context) {
 		return
 	}
 
 	// Get the user's profile information
-	profile, profileError := getProfileForTokens(*tokens)
+	profile, profileError := spotify.GetProfileForTokens(*tokens, globalClient)
 	if internalError(profileError, context) {
 		return
 	}
@@ -387,7 +346,7 @@ func callbackFlow(context *gin.Context) {
 	}
 
 	// Save the information to the DB
-	dbError := addSpotifyToUser(user, *profile, *tokens)
+	dbError := database.AddSpotifyToUser(user, *profile, *tokens)
 	if internalError(dbError, context) {
 		return
 	}
@@ -399,90 +358,4 @@ func callbackFlow(context *gin.Context) {
 	}
 
 	context.String(http.StatusOK, "Signed in. You can close this window now.")
-}
-
-func exchangeCodeForTokens(code string) (*spotifyAuthResponse, error) {
-	// Set the query values
-	queryValues := url.Values{}
-	queryValues.Set("grant_type", "authorization_code")
-	queryValues.Set("code", code)
-	queryValues.Set("redirect_uri", getLoginRedirectURL())
-	urlEncodedBody := queryValues.Encode()
-
-	// Get the auth and refresh tokens
-	authReq, authReqError := http.NewRequest(http.MethodPost, spotifyAuthURL+"api/token", strings.NewReader(urlEncodedBody))
-	if authReqError != nil {
-		return nil, authReqError
-	}
-
-	// Add the body headers
-	authReq.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-	authReq.Header.Add("Content-Length", strconv.Itoa(len(urlEncodedBody)))
-
-	// Encode the authorization header
-	bytes := []byte(os.Getenv("SPOTIFY_CLIENT_ID") + ":" + os.Getenv("SPOTIFY_CLIENT_SECRET"))
-	authReq.Header.Add("Authorization", "Basic "+base64.StdEncoding.EncodeToString(bytes))
-
-	// Send the request
-	authResp, authRespError := globalClient.Do(authReq)
-	if authRespError != nil {
-		return nil, authRespError
-	}
-	defer authResp.Body.Close()
-
-	// Check status codes
-	if authResp.StatusCode != http.StatusOK {
-		return nil, errors.New("Non-200 status code from auth endpoint: " + strconv.Itoa(authResp.StatusCode) + " / " + authResp.Status)
-	}
-
-	// Read the tokens
-	jsonBytes, readError := ioutil.ReadAll(authResp.Body)
-	if readError != nil {
-		return nil, readError
-	}
-
-	var tokens spotifyAuthResponse
-	jsonError := json.Unmarshal(jsonBytes, &tokens)
-	if jsonError != nil {
-		return nil, jsonError
-	}
-
-	return &tokens, nil
-}
-
-func getProfileForTokens(tokens spotifyAuthResponse) (*spotifyProfile, error) {
-	// Build request
-	profReq, profReqError := http.NewRequest(http.MethodGet, spotifyAPIURL+"me", nil)
-	if profReqError != nil {
-		return nil, profReqError
-	}
-
-	// Add auth
-	profReq.Header.Add("Authorization", "Bearer "+tokens.AccessToken)
-
-	// Send the request
-	profResp, profRespError := globalClient.Do(profReq)
-	if profRespError != nil {
-		return nil, profRespError
-	}
-	defer profResp.Body.Close()
-
-	// Check status codes
-	if profResp.StatusCode != http.StatusOK {
-		return nil, errors.New("Non-200 status code from profile endpoint: " + strconv.Itoa(profResp.StatusCode) + " / " + profResp.Status)
-	}
-
-	// Read the tokens
-	jsonBytes, readError := ioutil.ReadAll(profResp.Body)
-	if readError != nil {
-		return nil, readError
-	}
-
-	var profile spotifyProfile
-	jsonError := json.Unmarshal(jsonBytes, &profile)
-	if jsonError != nil {
-		return nil, jsonError
-	}
-
-	return &profile, nil
 }

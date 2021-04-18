@@ -11,11 +11,6 @@ import (
 	"strings"
 )
 
-var appURL = "https://spotify-status-sync.herokuapp.com/"
-var slackAPIURL = "https://slack.com/api/"
-var spotifyAuthURL = "https://accounts.spotify.com/"
-var spotifyAPIURL = "https://api.spotify.com/v1/"
-
 type viewPublishResponse struct {
 	OK bool `json:"ok"`
 }
@@ -25,12 +20,12 @@ func CreateNewUserHomepage(user string, client *http.Client) error {
 	queryValues := url.Values{}
 	queryValues.Set("client_id", os.Getenv("SPOTIFY_CLIENT_ID"))
 	queryValues.Set("response_type", "code")
-	queryValues.Set("redirect_uri", appURL+"spotify/callback")
+	queryValues.Set("redirect_uri", os.Getenv("APP_URL")+"spotify/callback")
 	queryValues.Set("scope", "user-read-currently-playing")
 	queryValues.Set("state", user)
 
 	// Link to spotify OAuth page
-	OAuthURL := spotifyAuthURL + "authorize?" + queryValues.Encode()
+	OAuthURL := os.Getenv("SPOTIFY_AUTH_URL") + "authorize?" + queryValues.Encode()
 
 	// Update home view
 	newView := `{
@@ -124,7 +119,7 @@ func CreateReturningHomepage(user string, client *http.Client) error {
 
 func updateHomepage(view string, client *http.Client) error {
 	// Build request and send
-	viewReq, viewReqError := http.NewRequest(http.MethodPost, slackAPIURL+"views.publish", strings.NewReader(view))
+	viewReq, viewReqError := http.NewRequest(http.MethodPost, os.Getenv("SLACK_API_URL")+"views.publish", strings.NewReader(view))
 	if viewReqError != nil {
 		return viewReqError
 	}
