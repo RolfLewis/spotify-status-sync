@@ -52,6 +52,7 @@ func main() {
 	})
 
 	router.GET("/spotify/callback", callbackFlow)
+	router.GET("/spotify/disconnect", disconnectEndpoint)
 	router.POST("/slack/events", eventsEndpoint)
 
 	// Create the global spotify client
@@ -153,6 +154,26 @@ func eventsEndpoint(context *gin.Context) {
 	} else {
 		context.String(http.StatusBadRequest, "Not a supported event")
 		log.Println("Not a supported event:", event)
+	}
+}
+
+func disconnectEndpoint(context *gin.Context) {
+	// Expects a single query parameter of "user"
+	user := context.Query("user")
+	if user != "" { // Delete the data for this user
+		deleteError := deleteAllDataForUser(user)
+		if internalError(deleteError, context) {
+			return
+		}
+		// After removing the data, reset the user's app home view back to the new user flow
+		viewError := createNewUserHomepage(user)
+		if internalError(viewError, context) {
+			return
+		}
+		// Report success
+		context.String(http.StatusOK, "user data removed")
+	} else { // Report a bad request
+		context.String(http.StatusBadRequest, "user query parameter must be provided")
 	}
 }
 
@@ -331,7 +352,7 @@ func createNewUserHomepage(user string) error {
 						"text": {
 							"type": "plain_text",
 							"text": "Log in to Spotify",
-							"emoji": true
+							"emoji": false
 						},
 						"value": "login",
 						"url": "` + OAuthURL + `",
@@ -346,6 +367,13 @@ func createNewUserHomepage(user string) error {
 }
 
 func createReturningHomepage(user string) error {
+	// Set the query values
+	queryValues := url.Values{}
+	queryValues.Set("user", user)
+
+	// Link to spotify OAuth page
+	disconnectURL := spotifyAuthURL + "authorize?" + queryValues.Encode()
+
 	// Update home view
 	newView := `{
 		"user_id": "` + user + `",
@@ -365,6 +393,24 @@ func createReturningHomepage(user string) error {
 				},
 				{
 					"type": "divider"
+				},
+				{
+					"type": "section",
+					"text": {
+						"type": "mrkdwn",
+						"text": "*Disconnect your Spotify account here:*"
+					},
+					"accessory": {
+						"type": "button",
+						"text": {
+							"type": "plain_text",
+							"text": "Disconnect",
+							"emoji": false
+						},
+						"value": "disconnect",
+						"url": "` + disconnectURL + `",
+						"action_id": "button-action"
+					}
 				}
 			]
 		}

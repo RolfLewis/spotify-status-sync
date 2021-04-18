@@ -114,3 +114,8 @@ func getSpotifyForUser(user string) (string, *spotifyAuthResponse, error) {
 		RefreshToken: fields[1].(string),
 	}, nil
 }
+
+func deleteAllDataForUser(user string) error {
+	_, deleteError := appDatabase.Exec("DELETE FROM slackaccounts WHERE id=$1 CASCADE;", user)
+	return deleteError
+}
