@@ -297,6 +297,7 @@ func interactivityEndpoint(context *gin.Context) {
 
 	// Copy out the json body from the request
 	jsonBody, readError := ioutil.ReadAll(context.Request.Body)
+	log.Println(jsonBody)
 	if internalError(readError, context) {
 		return
 	}
@@ -305,6 +306,7 @@ func interactivityEndpoint(context *gin.Context) {
 	var header interactionHeader
 	headerParseError := json.Unmarshal(jsonBody, &header)
 	if internalError(headerParseError, context) {
+		log.Println("error while parsing header")
 		return
 	}
 
@@ -318,6 +320,7 @@ func interactivityEndpoint(context *gin.Context) {
 	var interaction viewInteraction
 	interactionParseError := json.Unmarshal(jsonBody, &interaction)
 	if internalError(interactionParseError, context) {
+		log.Println("error while parsing interaction")
 		return
 	}
 
