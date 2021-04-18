@@ -72,6 +72,16 @@ func addNewUser(user string) error {
 	return rowInsertError
 }
 
+func userExists(user string) (bool, error) {
+	_, scanError := appDatabase.QueryRowx("SELECT * FROM slackaccounts WHERE id=$1", user).SliceScan()
+	if scanError == sql.ErrNoRows {
+		return false, nil
+	} else if scanError != nil {
+		return false, scanError
+	}
+	return true, nil
+}
+
 func addSpotifyToUser(user string, profile spotifyProfile, tokens spotifyAuthResponse) error {
 	expirationTime := time.Now().Add(time.Second * time.Duration(tokens.ExpiresIn))
 	_, rowUpsertError := appDatabase.Exec("INSERT INTO spotifyaccounts VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO UPDATE SET accessToken=$2, refreshToken=$3, expirationAt=$4;", profile.ID, tokens.AccessToken, tokens.RefreshToken, expirationTime)

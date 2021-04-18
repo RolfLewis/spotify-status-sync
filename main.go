@@ -103,14 +103,24 @@ func eventsEndpoint(context *gin.Context) {
 
 	// Extract the inner event
 	event := wrapper.Event
-	log.Println(event)
+
+	// Make sure that a user record exists for the user
+	exists, existsError := userExists(event.User)
+	if existsError != nil {
+		context.String(http.StatusInternalServerError, existsError.Error())
+		return
+	}
+
+	// Create a user record if needed
+	if !exists {
+		addNewUser(event.User)
+	}
 
 	// If type is a app_home_opened, answer it
 	if event.Type == "app_home_opened" {
 		// Check if spotify has been connected yet for this session
 		profileID, _, dbError := getSpotifyForUser(event.User)
 		if dbError != nil {
-			log.Println(dbError)
 			context.String(http.StatusInternalServerError, dbError.Error())
 			return
 		}
