@@ -53,7 +53,7 @@ func CallbackFlow(context *gin.Context, client *http.Client) {
 	tokens := SpotifyAuthResponse{
 		AccessToken:  tokensMap["access_token"].(string),
 		RefreshToken: tokensMap["refresh_token"].(string),
-		ExpiresIn:    tokensMap["expires_in"].(int),
+		ExpiresIn:    int(tokensMap["expires_in"].(float64)),
 	}
 
 	// Get the user's profile information
