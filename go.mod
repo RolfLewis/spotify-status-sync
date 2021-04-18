@@ -7,5 +7,4 @@ require (
 	github.com/heroku/x v0.0.28
 	github.com/jmoiron/sqlx v1.3.3
 	github.com/lib/pq v1.10.0
-	golang.org/x/oauth2 v0.0.0-20210413134643-5e61552d6c78
 )

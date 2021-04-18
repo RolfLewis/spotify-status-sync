@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"errors"
 	"log"
 	"os"
 	"time"
@@ -84,8 +85,23 @@ func addSpotifyToUser(user string, profile spotifyProfile, tokens spotifyAuthRes
 		return rowUpsertError
 	}
 
-	_, rowUpdateError := appDatabase.Exec("UPDATE slackaccounts SET spotify_id=$1 WHERE id=$2", profile.ID, user)
-	return rowUpdateError
+	results, rowUpdateError := appDatabase.Exec("UPDATE slackaccounts SET spotify_id=$1 WHERE id=$2", profile.ID, user)
+	if rowUpdateError != nil {
+		return rowUpdateError
+	}
+
+	// Check to make sure a row was found
+	rowsAffected, affectedError := results.RowsAffected()
+	if affectedError != nil {
+		return affectedError
+	}
+
+	// If no rows were overwritten, then nothing had that ID
+	if rowsAffected == 0 {
+		return errors.New("No slack account record exists with this user id")
+	}
+
+	return nil
 }
 
 func getSpotifyForUser(user string) (string, *spotifyAuthResponse, error) {
