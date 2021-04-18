@@ -20,6 +20,12 @@ import (
 	"rolflewis.com/spotify-status-sync/src/views"
 )
 
+type SpotifyAuthResponse struct {
+	AccessToken  string
+	ExpiresIn    int
+	RefreshToken string
+}
+
 var globalClient *http.Client
 
 func main() {
@@ -328,25 +334,26 @@ func callbackFlow(context *gin.Context) {
 	}
 
 	// Exchange code for tokens
-	tokens, exchangeError := spotify.ExchangeCodeForTokens(code, globalClient)
+	tokensMap, exchangeError := spotify.ExchangeCodeForTokens(code, globalClient)
 	if internalError(exchangeError, context) {
 		return
 	}
 
+	// Convert the map of tokens into a struct
+	tokens := SpotifyAuthResponse{
+		AccessToken:  tokensMap["access_token"].(string),
+		RefreshToken: tokensMap["refresh_token"].(string),
+		ExpiresIn:    tokensMap["expires_in"].(int),
+	}
+
 	// Get the user's profile information
-	profile, profileError := spotify.GetProfileForTokens(*tokens, globalClient)
+	profile, profileError := spotify.GetProfileForTokens(tokens.AccessToken, globalClient)
 	if internalError(profileError, context) {
 		return
 	}
 
-	if profile == nil {
-		log.Println("No profile returned from GET")
-		context.String(http.StatusInternalServerError, "No profile returned from GET")
-		return
-	}
-
 	// Save the information to the DB
-	dbError := database.AddSpotifyToUser(user, *profile, *tokens)
+	dbError := database.AddSpotifyToUser(user, *profile, tokens.AccessToken, tokens.RefreshToken, tokens.ExpiresIn)
 	if internalError(dbError, context) {
 		return
 	}

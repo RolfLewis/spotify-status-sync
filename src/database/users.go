@@ -6,18 +6,6 @@ import (
 	"time"
 )
 
-type SpotifyAuthResponse struct {
-	AccessToken  string `json:"access_token"`
-	TokenType    string `json:"token_type"`
-	Scope        string `json:"scope"`
-	ExpiresIn    int    `json:"expires_in"`
-	RefreshToken string `json:"refresh_token"`
-}
-
-type SpotifyProfile struct {
-	ID string `json:"id"`
-}
-
 func addNewUser(user string) error {
 	_, rowInsertError := appDatabase.Exec("INSERT INTO slackaccounts VALUES ($1);", user)
 	return rowInsertError
@@ -53,7 +41,7 @@ func EnsureUserExists(user string) error {
 }
 
 // Adds the spotify information to the DB using a transaction. Rolls back on any error. Returns rollback error if one occurs.
-func AddSpotifyToUser(user string, profile SpotifyProfile, tokens SpotifyAuthResponse) error {
+func AddSpotifyToUser(user string, id string, accessToken string, refreshToken string, expiresIn int) error {
 	// Open a transaction on the DB - roll it back if anything fails
 	transaction, transactionError := appDatabase.Beginx()
 	if transactionError != nil {
@@ -61,14 +49,14 @@ func AddSpotifyToUser(user string, profile SpotifyProfile, tokens SpotifyAuthRes
 	}
 
 	// Insert the new spotify record
-	expirationTime := time.Now().Add(time.Second * time.Duration(tokens.ExpiresIn))
-	_, rowUpsertError := transaction.Exec("INSERT INTO spotifyaccounts VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO UPDATE SET accessToken=$2, refreshToken=$3, expirationAt=$4;", profile.ID, tokens.AccessToken, tokens.RefreshToken, expirationTime)
+	expirationTime := time.Now().Add(time.Second * time.Duration(expiresIn))
+	_, rowUpsertError := transaction.Exec("INSERT INTO spotifyaccounts VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO UPDATE SET accessToken=$2, refreshToken=$3, expirationAt=$4;", id, accessToken, refreshToken, expirationTime)
 	if rowUpsertError != nil {
 		return rollbackOnError(transaction, rowUpsertError)
 	}
 
 	// Tie the slack account to the spotify user
-	results, rowUpdateError := transaction.Exec("UPDATE slackaccounts SET spotify_id=$1 WHERE id=$2", profile.ID, user)
+	results, rowUpdateError := transaction.Exec("UPDATE slackaccounts SET spotify_id=$1 WHERE id=$2", id, user)
 	if rowUpdateError != nil {
 		return rollbackOnError(transaction, rowUpdateError)
 	}
@@ -94,7 +82,7 @@ func AddSpotifyToUser(user string, profile SpotifyProfile, tokens SpotifyAuthRes
 	return nil
 }
 
-func GetSpotifyForUser(user string) (string, *SpotifyAuthResponse, error) {
+func GetSpotifyForUser(user string) (string, []interface{}, error) {
 	// Get the spotify ID from the session
 	var spotifyID string
 	scanError := appDatabase.QueryRowx("SELECT spotify_id FROM slackaccounts WHERE id=$1 AND spotify_id IS NOT null", user).Scan(&spotifyID)
@@ -109,10 +97,7 @@ func GetSpotifyForUser(user string) (string, *SpotifyAuthResponse, error) {
 		return "", nil, tokensScanError
 	}
 	// Read the tokens into an object and return
-	return spotifyID, &SpotifyAuthResponse{
-		AccessToken:  fields[0].(string),
-		RefreshToken: fields[1].(string),
-	}, nil
+	return spotifyID, fields, nil
 }
 
 func DeleteAllDataForUser(user string) error {

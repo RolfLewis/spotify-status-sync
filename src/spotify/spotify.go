@@ -10,11 +10,9 @@ import (
 	"os"
 	"strconv"
 	"strings"
-
-	"rolflewis.com/spotify-status-sync/src/database"
 )
 
-func ExchangeCodeForTokens(code string, client *http.Client) (*database.SpotifyAuthResponse, error) {
+func ExchangeCodeForTokens(code string, client *http.Client) (map[string]interface{}, error) {
 	// Set the query values
 	queryValues := url.Values{}
 	queryValues.Set("grant_type", "authorization_code")
@@ -54,16 +52,16 @@ func ExchangeCodeForTokens(code string, client *http.Client) (*database.SpotifyA
 		return nil, readError
 	}
 
-	var tokens database.SpotifyAuthResponse
+	var tokens map[string]interface{}
 	jsonError := json.Unmarshal(jsonBytes, &tokens)
 	if jsonError != nil {
 		return nil, jsonError
 	}
 
-	return &tokens, nil
+	return tokens, nil
 }
 
-func GetProfileForTokens(tokens database.SpotifyAuthResponse, client *http.Client) (*database.SpotifyProfile, error) {
+func GetProfileForTokens(accessToken string, client *http.Client) (*string, error) {
 	// Build request
 	profReq, profReqError := http.NewRequest(http.MethodGet, os.Getenv("SPOTIFY_API_URL")+"me", nil)
 	if profReqError != nil {
@@ -71,7 +69,7 @@ func GetProfileForTokens(tokens database.SpotifyAuthResponse, client *http.Clien
 	}
 
 	// Add auth
-	profReq.Header.Add("Authorization", "Bearer "+tokens.AccessToken)
+	profReq.Header.Add("Authorization", "Bearer "+accessToken)
 
 	// Send the request
 	profResp, profRespError := client.Do(profReq)
@@ -85,17 +83,24 @@ func GetProfileForTokens(tokens database.SpotifyAuthResponse, client *http.Clien
 		return nil, errors.New("Non-200 status code from profile endpoint: " + strconv.Itoa(profResp.StatusCode) + " / " + profResp.Status)
 	}
 
-	// Read the tokens
+	// Read the response
 	jsonBytes, readError := ioutil.ReadAll(profResp.Body)
 	if readError != nil {
 		return nil, readError
 	}
 
-	var profile database.SpotifyProfile
+	// Cast to map
+	var profile map[string]interface{}
 	jsonError := json.Unmarshal(jsonBytes, &profile)
 	if jsonError != nil {
 		return nil, jsonError
 	}
 
-	return &profile, nil
+	// Get id from map
+	id := profile["id"].(string)
+	if id == "" {
+		return nil, errors.New("ID from profile endpoint is empty")
+	}
+
+	return &id, nil
 }
