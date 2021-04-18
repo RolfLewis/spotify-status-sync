@@ -1,16 +1,22 @@
 package main
 
 import (
+	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
 	"log"
+	"math"
 	"net/http"
 	"net/url"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/heroku/x/hmetrics/onload"
@@ -43,6 +49,7 @@ func main() {
 
 	router := gin.New()
 	router.Use(gin.Logger())
+	router.Use(filter)
 	router.LoadHTMLGlob("templates/*.tmpl.html")
 	router.Static("/static", "static")
 
@@ -63,6 +70,49 @@ func main() {
 	validateSchema()
 
 	router.Run(":" + port)
+}
+
+func filter(context *gin.Context) {
+	version := "v0" // This is a slack constant currently
+	timestamp, tsError := strconv.ParseInt(context.GetHeader("X-Slack-Request-Timestamp"), 10, 64)
+	if tsError != nil {
+		log.Println(tsError)
+		return
+	}
+
+	// Verify that this timestamp is in the last 2 minutes - prevents replay attacks
+	if math.Abs(time.Now().Sub(time.Unix(timestamp, 0)).Seconds()) > 2*60 {
+		log.Println("outside ts range")
+		return
+	}
+
+	// Copy the body buffer out, read it, and replace it
+	var bodyBytes []byte
+	if context.Request.Body != nil {
+		bodyBytes, _ = ioutil.ReadAll(context.Request.Body)
+	}
+	context.Request.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
+
+	// Compute signature and compare
+	totalString := version + ":" + strconv.FormatInt(timestamp, 10) + ":" + string(bodyBytes)
+	hasher := hmac.New(sha256.New, []byte(os.Getenv("SLACK_SIGNING_KEY")))
+	hasher.Write([]byte(totalString))
+	mySignature := hex.EncodeToString(hasher.Sum(nil))
+	providedSignature := context.GetHeader("X-Slack-Signature")
+
+	// If the signature header was not provided, not sent by slack
+	if providedSignature == "" {
+		log.Println("empty signature heading")
+		return
+	}
+
+	// If the calculated and given sigs don't match, not sent by slack
+	if !hmac.Equal([]byte(mySignature), []byte(providedSignature)) {
+		return
+	}
+
+	// Move to next handler
+	context.Next()
 }
 
 type eventWrapper struct {
