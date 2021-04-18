@@ -58,7 +58,7 @@ func validateSchema() {
 
 	createTableIfNotExists("slackaccounts", `CREATE TABLE slackaccounts (id text CONSTRAINT slack_pk PRIMARY KEY NOT null,
 		accessToken text, refreshToken text, expirationAt timestamp,
-		spotify_id text, CONSTRAINT spotify_fk FOREIGN KEY(spotify_id) REFERENCES spotifyaccounts(id)) ON DELETE CASCADE;`)
+		spotify_id text, CONSTRAINT spotify_fk FOREIGN KEY(spotify_id) REFERENCES spotifyaccounts(id) ON DELETE CASCADE);`)
 }
 
 func addNewUser(user string) error {
