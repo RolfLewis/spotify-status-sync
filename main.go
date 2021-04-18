@@ -145,6 +145,24 @@ type event struct {
 	Tab       string `json:"tab"`
 }
 
+func ensureUserExists(user string) error {
+	// Make sure that a user record exists for the user
+	exists, existsError := userExists(user)
+	if existsError != nil {
+		return existsError
+	}
+
+	// Create a user record if needed
+	if !exists {
+		userAddError := addNewUser(user)
+		if userAddError != nil {
+			return userAddError
+		}
+	}
+
+	return nil
+}
+
 func eventsEndpoint(context *gin.Context) {
 	// Ensure is from slack and is secure
 	if !isSecureFromSlack(context) {
@@ -168,18 +186,8 @@ func eventsEndpoint(context *gin.Context) {
 	// Extract the inner event
 	event := wrapper.Event
 
-	// Make sure that a user record exists for the user
-	exists, existsError := userExists(event.User)
-	if internalError(existsError, context) {
+	if internalError(ensureUserExists(event.User), context) {
 		return
-	}
-
-	// Create a user record if needed
-	if !exists {
-		userAddError := addNewUser(event.User)
-		if internalError(userAddError, context) {
-			return
-		}
 	}
 
 	// If type is a app_home_opened, answer it
@@ -287,8 +295,6 @@ func interactivityEndpoint(context *gin.Context) {
 		return
 	}
 
-	log.Println(jsonBody)
-
 	// Parse the interaction header data
 	var header interactionHeader
 	headerParseError := json.Unmarshal([]byte(jsonBody), &header)
@@ -350,6 +356,17 @@ func callbackFlow(context *gin.Context) {
 
 	// Read the user id (passed as state)
 	user := context.Query("state")
+
+	// if no state is somehow defined, bad request
+	if user == "" {
+		log.Println("No state/userid defined in callback request.")
+		context.String(http.StatusBadRequest, "No state/userid defined in callback request.")
+	}
+
+	// Make sure we have a user record for the user
+	if internalError(ensureUserExists(user), context) {
+		return
+	}
 
 	// Exchange code for tokens
 	tokens, exchangeError := exchangeCodeForTokens(code)
