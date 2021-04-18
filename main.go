@@ -288,7 +288,7 @@ func createNewUserHomepage(user string) {
 
 	// Update home view
 	newView := `{
-		"user_id": ` + user + `,
+		"user_id": "` + user + `",
 		"view":
 		{
 			"type": "home",
