@@ -73,7 +73,8 @@ func addNewUser(user string) error {
 }
 
 func userExists(user string) (bool, error) {
-	_, scanError := appDatabase.QueryRowx("SELECT * FROM slackaccounts WHERE id=$1", user).SliceScan()
+	var id string
+	scanError := appDatabase.QueryRowx("SELECT id FROM slackaccounts WHERE id=$1", user).Scan(&id)
 	if scanError == sql.ErrNoRows {
 		return false, nil
 	} else if scanError != nil {

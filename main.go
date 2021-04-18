@@ -121,7 +121,10 @@ func eventsEndpoint(context *gin.Context) {
 
 	// Create a user record if needed
 	if !exists {
-		addNewUser(event.User)
+		userAddError := addNewUser(event.User)
+		if internalError(userAddError, context) {
+			return
+		}
 	}
 
 	// If type is a app_home_opened, answer it
