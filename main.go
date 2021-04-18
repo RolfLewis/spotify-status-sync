@@ -20,6 +20,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/heroku/x/hmetrics/onload"
+	"golang.org/x/xerrors"
 )
 
 var appURL = "https://spotify-status-sync.herokuapp.com/"
@@ -141,8 +142,9 @@ type viewPublishResponse struct {
 // Takes an error and handles logging it and reporting a 500. Returns true if error was non-nil
 func internalError(err error, context *gin.Context) bool {
 	if err != nil {
-		log.Println(err.Error())
-		context.String(http.StatusInternalServerError, err.Error())
+		betterError := xerrors.Errorf(": %w", err)
+		log.Println(betterError.Error())
+		context.String(http.StatusInternalServerError, betterError.Error())
 		return true
 	}
 	return false
