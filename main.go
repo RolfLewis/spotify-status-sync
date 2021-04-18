@@ -17,8 +17,9 @@ import (
 )
 
 var appURL = "https://spotify-status-sync.herokuapp.com/"
+var slackAPIURL = "https://slack.com/api/"
 var spotifyAuthURL = "https://accounts.spotify.com/"
-var spotifyAPIURL = "https://slack.com/api/"
+var spotifyAPIURL = "https://api.spotify.com/v1/"
 var spotifyClient *http.Client
 
 type spotifyAuthResponse struct {
@@ -329,7 +330,7 @@ func createNewUserHomepage(user string) {
 	}`
 
 	// Build request and send
-	viewReq, viewReqError := http.NewRequest(http.MethodPost, spotifyAPIURL+"views.publish", strings.NewReader(newView))
+	viewReq, viewReqError := http.NewRequest(http.MethodPost, slackAPIURL+"views.publish", strings.NewReader(newView))
 	if viewReqError != nil {
 		log.Println(viewReqError)
 		return
