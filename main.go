@@ -58,7 +58,6 @@ func main() {
 	})
 
 	router.GET("/spotify/callback", callbackFlow)
-	router.GET("/spotify/disconnect", disconnectEndpoint)
 
 	router.POST("/slack/events", eventsEndpoint)
 	router.POST("/slack/interactivity", interactivityEndpoint)
@@ -216,24 +215,14 @@ func eventsEndpoint(context *gin.Context) {
 	}
 }
 
-func disconnectEndpoint(context *gin.Context) {
-	// Expects a single query parameter of "user"
-	user := context.Query("user")
-	if user != "" { // Delete the data for this user
-		deleteError := deleteAllDataForUser(user)
-		if internalError(deleteError, context) {
-			return
-		}
-		// After removing the data, reset the user's app home view back to the new user flow
-		viewError := createNewUserHomepage(user)
-		if internalError(viewError, context) {
-			return
-		}
-		// Report success
-		context.String(http.StatusOK, "user data removed")
-	} else { // Report a bad request
-		context.String(http.StatusBadRequest, "user query parameter must be provided")
+func disconnectHelper(user string) error {
+	deleteError := deleteAllDataForUser(user)
+	if deleteError != nil {
+		return deleteError
 	}
+	// After removing the data, reset the user's app home view back to the new user flow
+	return createNewUserHomepage(user)
+
 }
 
 // A generic struct that contains "header" data available on all interaction payloads
@@ -332,8 +321,19 @@ func interactivityEndpoint(context *gin.Context) {
 		return
 	}
 
-	log.Println(interaction)
-	context.String(http.StatusOK, "Testing")
+	// Dispatch each button press to the correct helper function
+	for _, action := range interaction.Actions {
+		// Disconnect button
+		if action.Type == "button" && action.ActionID == "spotify_disconnect_button" {
+			disconnectError := disconnectHelper(interaction.User.ID)
+			if internalError(disconnectError, context) {
+				return
+			}
+		}
+	}
+
+	// Return an interaction success
+	context.String(http.StatusOK, "Interaction Processed.")
 }
 
 func getLoginRedirectURL() string {
@@ -519,9 +519,9 @@ func createNewUserHomepage(user string) error {
 							"text": "Log in to Spotify",
 							"emoji": false
 						},
-						"value": "login",
+						"value": "spotify_login_button",
 						"url": "` + OAuthURL + `",
-						"action_id": "button-action"
+						"action_id": "spotify_login_button"
 					}
 				}
 			]
@@ -532,13 +532,6 @@ func createNewUserHomepage(user string) error {
 }
 
 func createReturningHomepage(user string) error {
-	// Set the query values
-	queryValues := url.Values{}
-	queryValues.Set("user", user)
-
-	// Link to spotify OAuth page
-	disconnectURL := appURL + "spotify/disconnect?" + queryValues.Encode()
-
 	// Update home view
 	newView := `{
 		"user_id": "` + user + `",
@@ -572,9 +565,8 @@ func createReturningHomepage(user string) error {
 							"text": "Disconnect",
 							"emoji": false
 						},
-						"value": "disconnect",
-						"url": "` + disconnectURL + `",
-						"action_id": "button-action"
+						"value": "spotify_disconnect_button",
+						"action_id": "spotify_disconnect_button"
 					}
 				}
 			]
