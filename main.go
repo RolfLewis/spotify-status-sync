@@ -97,7 +97,7 @@ func filter(context *gin.Context) {
 	totalString := version + ":" + strconv.FormatInt(timestamp, 10) + ":" + string(bodyBytes)
 	hasher := hmac.New(sha256.New, []byte(os.Getenv("SLACK_SIGNING_KEY")))
 	hasher.Write([]byte(totalString))
-	mySignature := hex.EncodeToString(hasher.Sum(nil))
+	mySignature := "v0=" + hex.EncodeToString(hasher.Sum(nil))
 	providedSignature := context.GetHeader("X-Slack-Signature")
 
 	// If the signature header was not provided, not sent by slack
