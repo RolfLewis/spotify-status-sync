@@ -31,8 +31,7 @@ type spotifyAuthResponse struct {
 }
 
 type spotifyProfile struct {
-	DisplayName string `json:"display_name"`
-	ID          string `json:"id"`
+	ID string `json:"id"`
 }
 
 func main() {
@@ -220,7 +219,7 @@ func callbackFlow(context *gin.Context) {
 		return
 	}
 
-	context.String(http.StatusOK, user+" "+profile.DisplayName+" "+profile.ID)
+	context.String(http.StatusOK, "Signed in. You can close this window now.")
 }
 
 func exchangeCodeForTokens(code string) (*spotifyAuthResponse, error) {
