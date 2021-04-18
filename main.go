@@ -142,7 +142,7 @@ func interactivityEndpoint(context *gin.Context) {
 }
 
 func getLoginRedirectURL() string {
-	return appURL + "callback"
+	return appURL + "spotify/callback"
 }
 
 func callbackFlow(context *gin.Context) {
@@ -284,7 +284,7 @@ func createNewUserHomepage(user string) {
 	queryValues.Set("state", user)
 
 	// Link to spotify OAuth page
-	OAuthURL := spotifyAuthURL + "/authorize?" + queryValues.Encode()
+	OAuthURL := spotifyAuthURL + "authorize?" + queryValues.Encode()
 
 	// Update home view
 	newView := `{
