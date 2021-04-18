@@ -295,16 +295,18 @@ func interactivityEndpoint(context *gin.Context) {
 		return
 	}
 
-	// Copy out the json body from the request
-	jsonBody, readError := ioutil.ReadAll(context.Request.Body)
-	log.Println(string(jsonBody))
-	if internalError(readError, context) {
+	// Annoyingly, Slack sends the interaction data as json packed inside a URL form
+	jsonBody, exists := context.GetPostForm("payload")
+	if !exists {
+		context.String(http.StatusBadRequest, "No payload provided.")
 		return
 	}
 
+	log.Println(jsonBody)
+
 	// Parse the interaction header data
 	var header interactionHeader
-	headerParseError := json.Unmarshal(jsonBody, &header)
+	headerParseError := json.Unmarshal([]byte(jsonBody), &header)
 	if internalError(headerParseError, context) {
 		log.Println("error while parsing header")
 		return
@@ -318,7 +320,7 @@ func interactivityEndpoint(context *gin.Context) {
 
 	// unmarshal to a more specific viewInteraction
 	var interaction viewInteraction
-	interactionParseError := json.Unmarshal(jsonBody, &interaction)
+	interactionParseError := json.Unmarshal([]byte(jsonBody), &interaction)
 	if internalError(interactionParseError, context) {
 		log.Println("error while parsing interaction")
 		return
