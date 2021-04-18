@@ -111,6 +111,8 @@ func filter(context *gin.Context) {
 		return
 	}
 
+	log.Println("MATCH MATCH MATCH MATCH") // Just to make sure this is actually working
+
 	// Move to next handler
 	context.Next()
 }
