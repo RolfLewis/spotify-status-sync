@@ -18,7 +18,7 @@ import (
 
 var appURL = "https://spotify-status-sync.herokuapp.com/"
 var spotifyAuthURL = "https://accounts.spotify.com/"
-var spotifyAPIURL = "https://api.spotify.com/v1/"
+var spotifyAPIURL = "https://slack.com/api/"
 var spotifyClient *http.Client
 
 type spotifyAuthResponse struct {
