@@ -52,6 +52,7 @@ func main() {
 
 	router.GET("/spotify/callback", callbackFlow)
 	router.GET("/spotify/disconnect", disconnectEndpoint)
+
 	router.POST("/slack/events", eventsEndpoint)
 
 	// Create the global spotify client
@@ -216,6 +217,12 @@ func callbackFlow(context *gin.Context) {
 	// Save the information to the DB
 	dbError := addSpotifyToUser(user, *profile, *tokens)
 	if internalError(dbError, context) {
+		return
+	}
+
+	// update the homepage view
+	viewError := createReturningHomepage(user)
+	if internalError(viewError, context) {
 		return
 	}
 

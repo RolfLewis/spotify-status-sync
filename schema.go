@@ -58,7 +58,7 @@ func validateSchema() {
 
 	createTableIfNotExists("slackaccounts", `CREATE TABLE slackaccounts (id text CONSTRAINT slack_pk PRIMARY KEY NOT null,
 		accessToken text, refreshToken text, expirationAt timestamp,
-		spotify_id text, CONSTRAINT spotify_fk FOREIGN KEY(spotify_id) REFERENCES spotifyaccounts(id) ON DELETE CASCADE);`)
+		spotify_id text, CONSTRAINT spotify_fk FOREIGN KEY(spotify_id) REFERENCES spotifyaccounts(id));`)
 }
 
 func addNewUser(user string) error {
@@ -110,6 +110,22 @@ func getSpotifyForUser(user string) (string, *spotifyAuthResponse, error) {
 }
 
 func deleteAllDataForUser(user string) error {
-	_, deleteError := appDatabase.Exec("DELETE FROM slackaccounts WHERE id=$1;", user)
-	return deleteError
+	// Get the spotify account id for the user
+	var spotifyID string
+	scanError := appDatabase.QueryRowx("SELECT spotify_id FROM slackaccounts WHERE id=$1 AND spotify_id IS NOT null", user).Scan(&spotifyID)
+	if scanError != nil && scanError != sql.ErrNoRows {
+		return scanError
+	}
+	// Delete the slack account record
+	_, slackDeleteError := appDatabase.Exec("DELETE FROM slackaccounts WHERE id=$1;", user)
+	if slackDeleteError != nil {
+		return slackDeleteError
+	}
+	// Delete the spotify record
+	if spotifyID != "" {
+		_, spotifyDeleteError := appDatabase.Exec("DELETE FROM spotifyaccounts WHERE id=$1", spotifyID)
+		return spotifyDeleteError
+	}
+	// No spotify data to delete
+	return nil
 }
