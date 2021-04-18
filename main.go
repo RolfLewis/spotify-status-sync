@@ -60,6 +60,7 @@ func main() {
 	router.GET("/spotify/disconnect", disconnectEndpoint)
 
 	router.POST("/slack/events", eventsEndpoint)
+	router.POST("/slack/interactivity", interactivityEndpoint)
 
 	// Create the global spotify client
 	spotifyClient = http.DefaultClient
@@ -232,6 +233,101 @@ func disconnectEndpoint(context *gin.Context) {
 	} else { // Report a bad request
 		context.String(http.StatusBadRequest, "user query parameter must be provided")
 	}
+}
+
+// A generic struct that contains "header" data available on all interaction payloads
+// Used to determine which more specific struct we can unmarshal the body into
+type interactionHeader struct {
+	Type string `json:"type"`
+	User struct {
+		ID string `json:"id"`
+	} `json:"user"`
+	Container struct {
+		Type string `json:"type"`
+	} `json:"container"`
+}
+
+type viewInteraction struct {
+	Type string `json:"type"`
+	Team struct {
+		ID     string `json:"id"`
+		Domain string `json:"domain"`
+	} `json:"team"`
+	User struct {
+		ID       string `json:"id"`
+		Username string `json:"username"`
+		TeamID   string `json:"team_id"`
+	} `json:"user"`
+	APIAppID  string `json:"api_app_id"`
+	Token     string `json:"token"`
+	Container struct {
+		Type   string `json:"type"`
+		ViewID string `json:"view_id"`
+	} `json:"container"`
+	TriggerID string `json:"trigger_id"`
+	View      struct {
+		ID              string `json:"id"`
+		TeamID          string `json:"team_id"`
+		Type            string `json:"type"`
+		PrivateMetadata string `json:"private_metadata"`
+		CallbackID      string `json:"callback_id"`
+		Hash            string `json:"hash"`
+	}
+	Actions []struct {
+		ActionID string `json:"action_id"`
+		BlockID  string `json:"block_id"`
+		Text     struct {
+			Type  string `json:"type"`
+			Text  string `json:"text"`
+			Emoji bool   `json:"emoji"`
+		} `json:"text"`
+		Value     string `json:"value"`
+		Type      string `json:"type"`
+		Timestamp string `json:"action_ts"`
+	}
+}
+
+func interactivityEndpoint(context *gin.Context) {
+	// Ensure is from slack and is secure
+	if !isSecureFromSlack(context) {
+		log.Println("Insecure request skipped.")
+		return
+	}
+
+	// Copy out the json body from the request
+	jsonBody, readError := ioutil.ReadAll(context.Request.Body)
+	if internalError(readError, context) {
+		return
+	}
+
+	// Parse the interaction header data
+	var header interactionHeader
+	headerParseError := json.Unmarshal(jsonBody, &header)
+	if internalError(headerParseError, context) {
+		return
+	}
+
+	// If this is not a view interaction, send an ack but ignore
+	if header.Type != "block_actions" || header.Container.Type != "view" {
+		context.String(http.StatusOK, "Ignored")
+		return
+	}
+
+	// unmarshal to a more specific viewInteraction
+	var interaction viewInteraction
+	interactionParseError := json.Unmarshal(jsonBody, &interaction)
+	if internalError(interactionParseError, context) {
+		return
+	}
+
+	// If the interaction was not with the app home view, ack and ignore
+	if interaction.View.Type != "home" {
+		context.String(http.StatusOK, "Ignored")
+		return
+	}
+
+	log.Println(interaction)
+	context.String(http.StatusOK, "Testing")
 }
 
 func getLoginRedirectURL() string {
