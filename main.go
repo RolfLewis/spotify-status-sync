@@ -86,7 +86,7 @@ func isSecureFromSlack(context *gin.Context) bool {
 		return false
 	}
 
-	// Verify that this timestamp is in the last 2 minutes - prevents replay attacks
+	// Verify that this timestamp is in the last 2 minutes - mitigates replay attacks
 	if math.Abs(time.Now().Sub(time.Unix(timestamp, 0)).Seconds()) > 2*60 {
 		return false
 	}
@@ -297,7 +297,7 @@ func interactivityEndpoint(context *gin.Context) {
 
 	// Copy out the json body from the request
 	jsonBody, readError := ioutil.ReadAll(context.Request.Body)
-	log.Println(jsonBody)
+	log.Println(string(jsonBody))
 	if internalError(readError, context) {
 		return
 	}
