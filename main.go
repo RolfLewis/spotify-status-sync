@@ -372,7 +372,7 @@ func createReturningHomepage(user string) error {
 	queryValues.Set("user", user)
 
 	// Link to spotify OAuth page
-	disconnectURL := spotifyAuthURL + "authorize?" + queryValues.Encode()
+	disconnectURL := appURL + "?" + queryValues.Encode()
 
 	// Update home view
 	newView := `{
