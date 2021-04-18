@@ -52,7 +52,6 @@ func main() {
 	})
 
 	router.GET("/spotify/callback", callbackFlow)
-	router.POST("/slack/interactivity", interactivityEndpoint)
 	router.POST("/slack/events", eventsEndpoint)
 
 	// Create the global spotify client
@@ -138,9 +137,15 @@ func eventsEndpoint(context *gin.Context) {
 		log.Println("Spotify for user:", profileID)
 
 		if profileID == "" { // Serve a new welcome screen
-			createNewUserHomepage(event.User)
+			pageError := createNewUserHomepage(event.User)
+			if internalError(pageError, context) {
+				return
+			}
 		} else { // Serve an all-set screen
-			createReturningHomepage(event.User)
+			pageError := createReturningHomepage(event.User)
+			if internalError(pageError, context) {
+				return
+			}
 		}
 
 		// Send an acknowledgment
@@ -149,17 +154,6 @@ func eventsEndpoint(context *gin.Context) {
 		context.String(http.StatusBadRequest, "Not a supported event")
 		log.Println("Not a supported event:", event)
 	}
-}
-
-func interactivityEndpoint(context *gin.Context) {
-	// var jsonData string
-	// jsonError := context.BindJSON(&jsonData)
-	// if jsonError != nil {
-	// 	log.Println(jsonError.Error())
-	// }
-	// log.Println(jsonData)
-	log.Println("interactive")
-	context.String(http.StatusOK, "interactive")
 }
 
 func getLoginRedirectURL() string {
@@ -294,7 +288,7 @@ func getProfileForTokens(tokens spotifyAuthResponse) (*spotifyProfile, error) {
 	return &profile, nil
 }
 
-func createNewUserHomepage(user string) {
+func createNewUserHomepage(user string) error {
 	// Set the query values
 	queryValues := url.Values{}
 	queryValues.Set("client_id", os.Getenv("SPOTIFY_CLIENT_ID"))
@@ -348,54 +342,78 @@ func createNewUserHomepage(user string) {
 		}
 	}`
 
+	return updateHomepage(newView)
+}
+
+func createReturningHomepage(user string) error {
+	// Update home view
+	newView := `{
+		"user_id": "` + user + `",
+		"view":
+		{
+			"type": "home",
+			"blocks": [
+				{
+					"type": "divider"
+				},
+				{
+					"type": "section",
+					"text": {
+						"type": "mrkdwn",
+						"text": "You're all set."
+					}
+				},
+				{
+					"type": "divider"
+				}
+			]
+		}
+	}`
+
+	return updateHomepage(newView)
+}
+
+func updateHomepage(view string) error {
 	// Build request and send
-	viewReq, viewReqError := http.NewRequest(http.MethodPost, slackAPIURL+"views.publish", strings.NewReader(newView))
+	viewReq, viewReqError := http.NewRequest(http.MethodPost, slackAPIURL+"views.publish", strings.NewReader(view))
 	if viewReqError != nil {
-		log.Println(viewReqError)
-		return
+		return viewReqError
 	}
 
 	// Add the body headers
 	viewReq.Header.Add("Content-Type", "application/json")
-	viewReq.Header.Add("Content-Length", strconv.Itoa(len(newView)))
+	viewReq.Header.Add("Content-Length", strconv.Itoa(len(view)))
 
 	// Encode the authorization header
 	viewReq.Header.Add("Authorization", "Bearer "+os.Getenv("SLACK_BEARER_TOKEN"))
-	log.Println("Bearer " + os.Getenv("SLACK_BEARER_TOKEN"))
 
 	// Send the request
 	viewResp, viewRespError := spotifyClient.Do(viewReq)
 	if viewRespError != nil {
-		log.Println(viewRespError)
-		return
+		return viewRespError
 	}
 	defer viewResp.Body.Close()
 
 	// Check status codes
 	if viewResp.StatusCode != http.StatusOK {
-		log.Println("Non-200 status code from view.publish endpoint: " + strconv.Itoa(viewResp.StatusCode) + " / " + viewResp.Status)
-		return
+		return errors.New("Non-200 status code from view.publish endpoint: " + strconv.Itoa(viewResp.StatusCode) + " / " + viewResp.Status)
 	}
 
 	// Read the tokens
 	jsonBytes, readError := ioutil.ReadAll(viewResp.Body)
 	if readError != nil {
-		log.Println(readError)
-		return
+		return readError
 	}
 
 	var responseObject viewPublishResponse
 	jsonError := json.Unmarshal(jsonBytes, &responseObject)
 	if jsonError != nil {
-		log.Println(jsonError)
-		return
+		return jsonError
 	}
 
 	if !responseObject.OK {
-		log.Println("VIEW UPDATE NOT OKAY")
+		return errors.New("Homepage update not reporting success.")
 	}
-}
 
-func createReturningHomepage(user string) {
-	log.Println(user, "in returing homepage")
+	return nil
 }
