@@ -97,7 +97,7 @@ func addSpotifyToUser(user string, profile spotifyProfile, tokens spotifyAuthRes
 func getSpotifyForUser(user string) (string, *spotifyAuthResponse, error) {
 	// Get the spotify ID from the session
 	var spotifyID string
-	scanError := appDatabase.QueryRowx("SELECT spotify_id FROM slackaccounts WHERE id=$1 AND spotify_id NOT null", user).Scan(&spotifyID)
+	scanError := appDatabase.QueryRowx("SELECT spotify_id FROM slackaccounts WHERE id=$1 AND spotify_id IS NOT null", user).Scan(&spotifyID)
 	if scanError == sql.ErrNoRows {
 		return "", nil, nil // Nothing to return
 	} else if scanError != nil {
