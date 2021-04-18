@@ -49,7 +49,6 @@ func main() {
 
 	router := gin.New()
 	router.Use(gin.Logger())
-	router.Use(filter)
 	router.LoadHTMLGlob("templates/*.tmpl.html")
 	router.Static("/static", "static")
 
@@ -72,18 +71,22 @@ func main() {
 	router.Run(":" + port)
 }
 
-func filter(context *gin.Context) {
+func isSecureFromSlack(context *gin.Context) bool {
 	version := "v0" // This is a slack constant currently
-	timestamp, tsError := strconv.ParseInt(context.GetHeader("X-Slack-Request-Timestamp"), 10, 64)
+	timestampString := context.GetHeader("X-Slack-Request-Timestamp")
+
+	if timestampString == "" {
+		return false
+	}
+
+	timestamp, tsError := strconv.ParseInt(timestampString, 10, 64)
 	if tsError != nil {
-		log.Println(tsError)
-		return
+		return false
 	}
 
 	// Verify that this timestamp is in the last 2 minutes - prevents replay attacks
 	if math.Abs(time.Now().Sub(time.Unix(timestamp, 0)).Seconds()) > 2*60 {
-		log.Println("outside ts range")
-		return
+		return false
 	}
 
 	// Copy the body buffer out, read it, and replace it
@@ -102,19 +105,15 @@ func filter(context *gin.Context) {
 
 	// If the signature header was not provided, not sent by slack
 	if providedSignature == "" {
-		log.Println("empty signature heading")
-		return
+		return false
 	}
 
 	// If the calculated and given sigs don't match, not sent by slack
 	if !hmac.Equal([]byte(mySignature), []byte(providedSignature)) {
-		return
+		return false
 	}
 
-	log.Println("MATCH MATCH MATCH MATCH") // Just to make sure this is actually working
-
-	// Move to next handler
-	context.Next()
+	return true
 }
 
 type eventWrapper struct {
@@ -149,6 +148,12 @@ func internalError(err error, context *gin.Context) bool {
 }
 
 func eventsEndpoint(context *gin.Context) {
+	// Ensure is from slack and is secure
+	if !isSecureFromSlack(context) {
+		log.Println("Insecure request skipped.")
+		return
+	}
+
 	// Parse the event
 	var wrapper eventWrapper
 	parseError := context.BindJSON(&wrapper)
