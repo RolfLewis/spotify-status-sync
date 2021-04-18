@@ -340,7 +340,7 @@ func callbackFlow(context *gin.Context) {
 	// Check for error from Spotify
 	errorMsg := context.Query("error")
 	if errorMsg != "" {
-		betterError := xerrors.Errorf(": %s", errorMsg)
+		betterError := xerrors.New(errorMsg)
 		log.Println(betterError.Error())
 		context.String(http.StatusInternalServerError, betterError.Error())
 		return
