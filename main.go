@@ -86,12 +86,21 @@ type viewPublishResponse struct {
 	OK bool `json:"ok"`
 }
 
+// Takes an error and handles logging it and reporting a 500. Returns true if error was non-nil
+func internalError(err error, context *gin.Context) bool {
+	if err != nil {
+		log.Println(err.Error())
+		context.String(http.StatusInternalServerError, err.Error())
+		return true
+	}
+	return false
+}
+
 func eventsEndpoint(context *gin.Context) {
 	// Parse the event
 	var wrapper eventWrapper
 	parseError := context.BindJSON(&wrapper)
-	if parseError != nil {
-		context.String(http.StatusInternalServerError, parseError.Error())
+	if internalError(parseError, context) {
 		return
 	}
 
@@ -106,8 +115,7 @@ func eventsEndpoint(context *gin.Context) {
 
 	// Make sure that a user record exists for the user
 	exists, existsError := userExists(event.User)
-	if existsError != nil {
-		context.String(http.StatusInternalServerError, existsError.Error())
+	if internalError(existsError, context) {
 		return
 	}
 
@@ -120,8 +128,7 @@ func eventsEndpoint(context *gin.Context) {
 	if event.Type == "app_home_opened" {
 		// Check if spotify has been connected yet for this session
 		profileID, _, dbError := getSpotifyForUser(event.User)
-		if dbError != nil {
-			context.String(http.StatusInternalServerError, dbError.Error())
+		if internalError(dbError, context) {
 			return
 		}
 
@@ -160,6 +167,7 @@ func callbackFlow(context *gin.Context) {
 	// Check for error from Spotify
 	errorMsg := context.Query("error")
 	if errorMsg != "" {
+		log.Println(errorMsg)
 		context.String(http.StatusInternalServerError, errorMsg)
 		return
 	}
@@ -172,27 +180,25 @@ func callbackFlow(context *gin.Context) {
 
 	// Exchange code for tokens
 	tokens, exchangeError := exchangeCodeForTokens(code)
-	if exchangeError != nil {
-		context.String(http.StatusInternalServerError, exchangeError.Error())
+	if internalError(exchangeError, context) {
 		return
 	}
 
 	// Get the user's profile information
 	profile, profileError := getProfileForTokens(*tokens)
-	if profileError != nil {
-		context.String(http.StatusInternalServerError, profileError.Error())
+	if internalError(profileError, context) {
 		return
 	}
 
 	if profile == nil {
+		log.Println("No profile returned from GET")
 		context.String(http.StatusInternalServerError, "No profile returned from GET")
 		return
 	}
 
 	// Save the information to the DB
 	dbError := addSpotifyToUser(user, *profile, *tokens)
-	if dbError != nil {
-		context.String(http.StatusInternalServerError, dbError.Error())
+	if internalError(dbError, context) {
 		return
 	}
 
