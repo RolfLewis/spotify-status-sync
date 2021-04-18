@@ -36,6 +36,15 @@ func disconnectDatabase() {
 	}
 }
 
+// Rolls back the transaction and returns the causing error. If rollback fails, returns that error instead.
+func rollbackOnError(transaction *sqlx.Tx, err error) error {
+	rollbackError := transaction.Rollback()
+	if rollbackError != nil {
+		return rollbackError
+	}
+	return err
+}
+
 func validateSchema() {
 	createTableIfNotExists := func(tableParam string, createCmd string) {
 		// Check if the table exists
@@ -78,29 +87,45 @@ func userExists(user string) (bool, error) {
 	return true, nil
 }
 
+// Adds the spotify information to the DB using a transaction. Rolls back on any error. Returns rollback error if one occurs.
 func addSpotifyToUser(user string, profile spotifyProfile, tokens spotifyAuthResponse) error {
-	expirationTime := time.Now().Add(time.Second * time.Duration(tokens.ExpiresIn))
-	_, rowUpsertError := appDatabase.Exec("INSERT INTO spotifyaccounts VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO UPDATE SET accessToken=$2, refreshToken=$3, expirationAt=$4;", profile.ID, tokens.AccessToken, tokens.RefreshToken, expirationTime)
-	if rowUpsertError != nil {
-		return rowUpsertError
+	// Open a transaction on the DB - roll it back if anything fails
+	transaction, transactionError := appDatabase.Beginx()
+	if transactionError != nil {
+		return rollbackOnError(transaction, transactionError)
 	}
 
-	results, rowUpdateError := appDatabase.Exec("UPDATE slackaccounts SET spotify_id=$1 WHERE id=$2", profile.ID, user)
+	// Insert the new spotify record
+	expirationTime := time.Now().Add(time.Second * time.Duration(tokens.ExpiresIn))
+	_, rowUpsertError := transaction.Exec("INSERT INTO spotifyaccounts VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO UPDATE SET accessToken=$2, refreshToken=$3, expirationAt=$4;", profile.ID, tokens.AccessToken, tokens.RefreshToken, expirationTime)
+	if rowUpsertError != nil {
+		return rollbackOnError(transaction, rowUpsertError)
+	}
+
+	// Tie the slack account to the spotify user
+	results, rowUpdateError := transaction.Exec("UPDATE slackaccounts SET spotify_id=$1 WHERE id=$2", profile.ID, user)
 	if rowUpdateError != nil {
-		return rowUpdateError
+		return rollbackOnError(transaction, rowUpdateError)
 	}
 
 	// Check to make sure a row was found
 	rowsAffected, affectedError := results.RowsAffected()
 	if affectedError != nil {
-		return affectedError
+		return rollbackOnError(transaction, affectedError)
 	}
 
 	// If no rows were overwritten, then nothing had that ID
 	if rowsAffected == 0 {
-		return errors.New("No slack account record exists with this user id")
+		return rollbackOnError(transaction, errors.New("No slack account record exists with this user id"))
 	}
 
+	// Commit the transaction to the DB
+	commitError := transaction.Commit()
+	if commitError != nil {
+		return rollbackOnError(transaction, commitError)
+	}
+
+	// Return success
 	return nil
 }
 
