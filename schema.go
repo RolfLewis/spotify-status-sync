@@ -74,9 +74,9 @@ func addNewUser(user string) error {
 
 func addSpotifyToUser(user string, profile spotifyProfile, tokens spotifyAuthResponse) error {
 	expirationTime := time.Now().Add(time.Second * time.Duration(tokens.ExpiresIn))
-	_, rowInsertError := appDatabase.Exec("INSERT INTO spotifyaccounts VALUES ($1, $2, $3, $4);", profile.ID, tokens.AccessToken, tokens.RefreshToken, expirationTime)
-	if rowInsertError != nil {
-		return rowInsertError
+	_, rowUpsertError := appDatabase.Exec("INSERT INTO spotifyaccounts VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO UPDATE SET accessToken=$2, refreshToken=$3, expirationAt=$4;", profile.ID, tokens.AccessToken, tokens.RefreshToken, expirationTime)
+	if rowUpsertError != nil {
+		return rowUpsertError
 	}
 
 	_, rowUpdateError := appDatabase.Exec("UPDATE slackaccounts SET spotify_id=$1 WHERE id=$2", profile.ID, user)
