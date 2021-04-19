@@ -73,7 +73,7 @@ func statusSyncHelper() (int, error) {
 		if current != nil && current.IsPlaying {
 			if current.CurrentlyPlayingType == "track" {
 				// Build the new status
-				newStatus = "Listening to " + current.Item.Name + " by "
+				newStatus = "Listening to \"" + current.Item.Name + "\" by "
 				for index, artist := range current.Item.Artists {
 					// Comma separated list
 					if index > 0 {
@@ -85,8 +85,13 @@ func statusSyncHelper() (int, error) {
 				newStatus += " on Spotify"
 			} else if current.CurrentlyPlayingType == "episode" {
 				// Build the new status
-				newStatus = "Listening to " + current.Item.Name + " (" + current.Item.Show.Name + ") by " + current.Item.Show.Publisher + " on Spotify"
+				newStatus = "Listening to \"" + current.Item.Name + "\" (" + current.Item.Show.Name + ") by " + current.Item.Show.Publisher + " on Spotify"
 			}
+		}
+		// Safeguards against overly long status messages
+		if len(newStatus) > 100 {
+			// Fallback to just the name
+			newStatus = "Listening to \"" + current.Item.Name + "\" on Spotify "
 		}
 		// Update the new status
 		updateError := slack.UpdateUserStatus(user, newStatus, globalClient)
