@@ -133,7 +133,7 @@ func UpdateHome(user string, client *http.Client) error {
 			slackQueryValues := url.Values{}
 			slackQueryValues.Set("client_id", os.Getenv("SLACK_CLIENT_ID"))
 			slackQueryValues.Set("redirect_uri", os.Getenv("APP_URL")+"slack/callback")
-			slackQueryValues.Set("scope", "users.profile:read,users.profile:write")
+			slackQueryValues.Set("user_scope", "users.profile:read,users.profile:write")
 			slackQueryValues.Set("state", user)
 
 			// Link to spotify OAuth page
