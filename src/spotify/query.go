@@ -62,7 +62,7 @@ func getCurrentlyPlayingSongForUser(user string, client *http.Client) (*Currentl
 	queryValues := url.Values{}
 	queryValues.Set("market", "from_token")
 	// Get the auth and refresh tokens
-	songReq, songReqError := http.NewRequest(http.MethodGet, os.Getenv("SPOTIFY_AUTH_URL")+"api/token?"+queryValues.Encode(), nil)
+	songReq, songReqError := http.NewRequest(http.MethodGet, os.Getenv("SPOTIFY_API_URL")+"me/player/currently-playing?"+queryValues.Encode(), nil)
 	if songReqError != nil {
 		return nil, songReqError
 	}
