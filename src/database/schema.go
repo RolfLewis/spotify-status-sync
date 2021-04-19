@@ -62,9 +62,8 @@ func ValidateSchema() {
 	}
 
 	createTableIfNotExists("spotifyaccounts", `CREATE TABLE spotifyaccounts (id text CONSTRAINT spotify_pk PRIMARY KEY NOT null,
-		accessToken text, refreshToken text, expirationAt timestamp);`)
+		accesstoken text, refreshtoken text, expirationat timestamp);`)
 
 	createTableIfNotExists("slackaccounts", `CREATE TABLE slackaccounts (id text CONSTRAINT slack_pk PRIMARY KEY NOT null,
-		accessToken text, refreshToken text, expirationAt timestamp,
-		spotify_id text, CONSTRAINT spotify_fk FOREIGN KEY(spotify_id) REFERENCES spotifyaccounts(id));`)
+		accesstoken text, spotify_id text, CONSTRAINT spotify_fk FOREIGN KEY(spotify_id) REFERENCES spotifyaccounts(id));`)
 }

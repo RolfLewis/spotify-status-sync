@@ -91,7 +91,7 @@ func AddSpotifyToUser(user string, id string, accessToken string, refreshToken s
 
 func SaveSlackTokenForUser(user string, token string) error {
 	// Set the access token on the user record
-	results, rowUpdateError := appDatabase.Exec("UPDATE slackaccounts SET accessToken=$1 WHERE id=$2", token, user)
+	results, rowUpdateError := appDatabase.Exec("UPDATE slackaccounts SET accesstoken=$1 WHERE id=$2", token, user)
 	if rowUpdateError != nil {
 		return rowUpdateError
 	}
