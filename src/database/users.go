@@ -3,6 +3,7 @@ package database
 import (
 	"database/sql"
 	"errors"
+	"log"
 	"time"
 )
 
@@ -49,6 +50,8 @@ func AddSpotifyToUser(user string, id string, accessToken string, refreshToken s
 	if transactionError != nil {
 		return rollbackOnError(transaction, transactionError)
 	}
+
+	log.Println("Values in spotify add:", user, id, accessToken, refreshToken, expiresIn)
 
 	// Insert the new spotify record
 	expirationTime := time.Now().Add(time.Second * time.Duration(expiresIn))
