@@ -31,6 +31,15 @@ type profile struct {
 }
 
 func UpdateUserStatus(user string, newStatus string, client *http.Client) error {
+	// Check if the last status we set is the same as this one
+	lastStatus, dbReadError := database.GetStatusForUser(user)
+	if dbReadError != nil {
+		return dbReadError
+	}
+	// If this and last status match, return early
+	if lastStatus == newStatus {
+		return nil
+	}
 	// Read the status
 	profile, readError := getUserStatus(user, client)
 	if readError != nil {
@@ -38,8 +47,16 @@ func UpdateUserStatus(user string, newStatus string, client *http.Client) error 
 	}
 	// Check if we can overwrite, and do so if we can
 	if canOverwriteStatus(profile) {
+		// Set the status in slack
 		setError := setUserStatus(user, newStatus, client)
-		return setError
+		if setError != nil {
+			return setError
+		}
+		// Track the status change in the DB so we can avoid unneccesary checks
+		dbWriteError := database.SetStatusForUser(user, newStatus)
+		if dbWriteError != nil {
+			return dbWriteError
+		}
 	}
 	return nil
 }

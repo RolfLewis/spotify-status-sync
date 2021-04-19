@@ -145,6 +145,24 @@ func GetSlackForUser(user string) (string, error) {
 	return token, nil
 }
 
+func GetStatusForUser(user string) (string, error) {
+	// Get the status string for the user
+	var status string
+	getError := appDatabase.Get(&status, "SELECT status FROM statuses WHERE slack_id=$1", user)
+	if getError == sql.ErrNoRows {
+		return "", nil // Nothing to return
+	} else if getError != nil {
+		return "", getError
+	}
+	return status, nil
+}
+
+func SetStatusForUser(user string, status string) error {
+	// Upsert this record
+	_, rowUpsertError := appDatabase.Exec("INSERT INTO statuses VALUES ($1, $2) ON CONFLICT (slack_id) DO UPDATE SET status=$2;", user, status)
+	return rowUpsertError
+}
+
 func DeleteAllDataForUser(user string) error {
 	// Get the spotify account id for the user
 	var spotifyID string

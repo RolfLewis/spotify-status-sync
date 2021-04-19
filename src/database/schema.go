@@ -66,4 +66,6 @@ func ValidateSchema() {
 
 	createTableIfNotExists("slackaccounts", `CREATE TABLE slackaccounts (id text CONSTRAINT slack_pk PRIMARY KEY NOT null,
 		accesstoken text, spotify_id text, CONSTRAINT spotify_fk FOREIGN KEY(spotify_id) REFERENCES spotifyaccounts(id));`)
+
+	createTableIfNotExists("statuses", `CREATE TABLE statuses (slack_id text UNIQUE, CONSTRAINT slack_fk FOREIGN KEY(slack_id) REFERENCES slackaccounts(id), status text);`)
 }
