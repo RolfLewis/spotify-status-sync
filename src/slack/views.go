@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -232,6 +233,7 @@ func UpdateHome(user string, client *http.Client) error {
 		}`
 	}
 
+	log.Println(newView)
 	return updateHomeHelper(newView, client)
 }
 
