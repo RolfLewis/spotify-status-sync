@@ -13,8 +13,8 @@ func addNewUser(user string) error {
 
 func userExists(user string) (bool, error) {
 	// Get the user
-	result, getError := getSingleValue("SELECT id FROM slackaccounts WHERE id=$1", user)
-	return (result != nil), getError
+	result, getError := getSingleString("SELECT id FROM slackaccounts WHERE id=$1", user)
+	return (result != ""), getError
 }
 
 func GetAllConnectedUsers() ([]string, error) {
@@ -80,10 +80,13 @@ func SaveSlackTokenForUser(user string, token string) error {
 
 func GetSpotifyForUser(user string) (string, []string, error) {
 	// Get the spotify ID from the user
-	spotifyID, getError := getSingleValue("SELECT spotify_id FROM slackaccounts WHERE id=$1 AND spotify_id IS NOT null;", user)
+	spotifyID, getError := getSingleString("SELECT spotify_id FROM slackaccounts WHERE id=$1 AND spotify_id IS NOT null;", user)
 	if getError != nil {
 		return "", nil, getError
-	} else if spotifyID == nil {
+	}
+
+	// If spotify not connected, return blank data
+	if spotifyID == "" {
 		return "", nil, nil
 	}
 
@@ -100,28 +103,30 @@ func GetSpotifyForUser(user string) (string, []string, error) {
 	}
 
 	// Read the tokens into an object and return
-	return spotifyID.(string), tokens, nil
+	return spotifyID, tokens, nil
 }
 
 func GetSlackForUser(user string) (string, error) {
 	// Get the token for the user
-	token, getError := getSingleValue("SELECT accessToken FROM slackaccounts WHERE id=$1 AND accessToken IS NOT null;", user)
-	return token.(string), getError
+	token, getError := getSingleString("SELECT accessToken FROM slackaccounts WHERE id=$1 AND accessToken IS NOT null;", user)
+	return token, getError
 }
 
 func GetStatusForUser(user string) (string, error) {
 	// Get the status string for the user
-	status, getError := getSingleValue("SELECT status FROM slackaccounts WHERE id=$1 AND status IS NOT null;", user)
-	return status.(string), getError
+	status, getError := getSingleString("SELECT status FROM slackaccounts WHERE id=$1 AND status IS NOT null;", user)
+	return status, getError
 }
 
-func getSingleValue(query string, params ...interface{}) (interface{}, error) {
+func getSingleString(query string, params ...interface{}) (string, error) {
 	var object interface{}
 	getError := appDatabase.Get(&object, query, params...)
-	if getError != nil && getError != sql.ErrNoRows {
-		return nil, getError
+	if getError == sql.ErrNoRows {
+		return "", nil
+	} else if getError != nil {
+		return "", getError
 	}
-	return object, nil
+	return object.(string), nil
 }
 
 func SetStatusForUser(user string, status string) error {
