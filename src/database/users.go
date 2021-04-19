@@ -148,7 +148,7 @@ func GetSlackForUser(user string) (string, error) {
 func GetStatusForUser(user string) (string, error) {
 	// Get the status string for the user
 	var status string
-	getError := appDatabase.Get(&status, "SELECT status FROM statuses WHERE slack_id=$1", user)
+	getError := appDatabase.Get(&status, "SELECT status FROM slackaccounts WHERE id=$1", user)
 	if getError == sql.ErrNoRows {
 		return "", nil // Nothing to return
 	} else if getError != nil {
@@ -159,8 +159,21 @@ func GetStatusForUser(user string) (string, error) {
 
 func SetStatusForUser(user string, status string) error {
 	// Upsert this record
-	_, rowUpsertError := appDatabase.Exec("INSERT INTO statuses VALUES ($1, $2) ON CONFLICT (slack_id) DO UPDATE SET status=$2;", user, status)
-	return rowUpsertError
+	results, rowUpdateError := appDatabase.Exec("UPDATE slackaccounts SET status=$1 WHERE id=$2;", status, user)
+	if rowUpdateError != nil {
+		return rowUpdateError
+	}
+	// Check to make sure a row was found
+	rowsAffected, affectedError := results.RowsAffected()
+	if affectedError != nil {
+		return affectedError
+	}
+	// If no rows were overwritten, then nothing had that ID
+	if rowsAffected == 0 {
+		return errors.New("No slack account record exists with this user id")
+	}
+	// return success
+	return nil
 }
 
 func DeleteAllDataForUser(user string) error {
