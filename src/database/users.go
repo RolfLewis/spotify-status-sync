@@ -89,14 +89,33 @@ func AddSpotifyToUser(user string, id string, accessToken string, refreshToken s
 	return nil
 }
 
+func SaveSlackTokenForUser(user string, token string) error {
+	// Set the access token on the user record
+	results, rowUpdateError := appDatabase.Exec("UPDATE slackaccounts SET accessToken=$1 WHERE id=$2", token, user)
+	if rowUpdateError != nil {
+		return rowUpdateError
+	}
+	// Check to make sure a row was found
+	rowsAffected, affectedError := results.RowsAffected()
+	if affectedError != nil {
+		return affectedError
+	}
+	// If no rows were overwritten, then nothing had that ID
+	if rowsAffected == 0 {
+		return errors.New("No slack account record exists with this user id")
+	}
+	// return success
+	return nil
+}
+
 func GetSpotifyForUser(user string) (string, []string, error) {
-	// Get the spotify ID from the session
+	// Get the spotify ID from the user
 	var spotifyID string
-	scanError := appDatabase.QueryRowx("SELECT spotify_id FROM slackaccounts WHERE id=$1 AND spotify_id IS NOT null", user).Scan(&spotifyID)
-	if scanError == sql.ErrNoRows {
+	getError := appDatabase.Get(&spotifyID, "SELECT spotify_id FROM slackaccounts WHERE id=$1 AND spotify_id IS NOT null", user)
+	if getError == sql.ErrNoRows {
 		return "", nil, nil // Nothing to return
-	} else if scanError != nil {
-		return "", nil, scanError
+	} else if getError != nil {
+		return "", nil, getError
 	}
 	// Get the spotify tokens
 	fields, tokensScanError := appDatabase.QueryRowx("SELECT accessToken, refreshToken FROM spotifyaccounts WHERE id=$1", spotifyID).SliceScan()
@@ -112,6 +131,18 @@ func GetSpotifyForUser(user string) (string, []string, error) {
 
 	// Read the tokens into an object and return
 	return spotifyID, tokens, nil
+}
+
+func GetSlackForUser(user string) (string, error) {
+	// Get the token for the user
+	var token string
+	getError := appDatabase.Get(&token, "SELECT accessToken FROM slackaccounts WHERE id=$1 AND accessToken IS NOT null", user)
+	if getError == sql.ErrNoRows {
+		return "", nil // Nothing to return
+	} else if getError != nil {
+		return "", getError
+	}
+	return token, nil
 }
 
 func DeleteAllDataForUser(user string) error {

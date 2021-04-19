@@ -115,7 +115,7 @@ func InteractivityEndpoint(context *gin.Context, client *http.Client) {
 				return
 			}
 			// After removing the data, reset the user's app home view back to the new user flow
-			viewError := slack.CreateNewUserHomepage(interaction.User.ID, client)
+			viewError := slack.UpdateHome(interaction.User.ID, client)
 			if util.InternalError(viewError, context) {
 				return
 			}

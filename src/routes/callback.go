@@ -17,7 +17,46 @@ type SpotifyAuthResponse struct {
 	RefreshToken string
 }
 
-func CallbackFlow(context *gin.Context, client *http.Client) {
+func SlackCallbackFlow(context *gin.Context, client *http.Client) {
+	// Read the auth code
+	code := context.Query("code")
+
+	// Read the user id (passed as state)
+	user := context.Query("state")
+
+	// if no state is somehow defined, bad request
+	if user == "" {
+		log.Println("No state/userid defined in callback request.")
+		context.String(http.StatusBadRequest, "No state/userid defined in callback request.")
+	}
+
+	// Make sure we have a user record for the user
+	if util.InternalError(database.EnsureUserExists(user), context) {
+		return
+	}
+
+	// Exchange code for token
+	token, exchangeError := slack.ExchangeCodeForToken(code, client)
+	if util.InternalError(exchangeError, context) {
+		return
+	}
+
+	// Save to user record
+	saveError := database.SaveSlackTokenForUser(user, *token)
+	if util.InternalError(saveError, context) {
+		return
+	}
+
+	// update the homepage view
+	viewError := slack.UpdateHome(user, client)
+	if util.InternalError(viewError, context) {
+		return
+	}
+
+	context.String(http.StatusOK, "Signed in. You can close this window now.")
+}
+
+func SpotifyCallbackFlow(context *gin.Context, client *http.Client) {
 	// Check for error from Spotify
 	errorMsg := context.Query("error")
 	if errorMsg != "" {
@@ -69,7 +108,7 @@ func CallbackFlow(context *gin.Context, client *http.Client) {
 	}
 
 	// update the homepage view
-	viewError := slack.CreateReturningHomepage(user, client)
+	viewError := slack.UpdateHome(user, client)
 	if util.InternalError(viewError, context) {
 		return
 	}

@@ -56,26 +56,11 @@ func EventsEndpoint(context *gin.Context, client *http.Client) {
 
 	// If type is a app_home_opened, answer it
 	if event.Type == "app_home_opened" {
-		// Check if spotify has been connected yet for this session
-		profileID, _, dbError := database.GetSpotifyForUser(event.User)
-		if util.InternalError(dbError, context) {
+		// Update the home page
+		updateError := slack.UpdateHome(event.User, client)
+		if util.InternalError(updateError, context) {
 			return
 		}
-
-		log.Println("Spotify for user:", profileID)
-
-		if profileID == "" { // Serve a new welcome screen
-			pageError := slack.CreateNewUserHomepage(event.User, client)
-			if util.InternalError(pageError, context) {
-				return
-			}
-		} else { // Serve an all-set screen
-			pageError := slack.CreateReturningHomepage(event.User, client)
-			if util.InternalError(pageError, context) {
-				return
-			}
-		}
-
 		// Send an acknowledgment
 		context.String(http.StatusOK, "Ok")
 	} else {

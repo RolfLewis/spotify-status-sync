@@ -35,7 +35,8 @@ func main() {
 		c.HTML(http.StatusOK, "index.tmpl.html", nil)
 	})
 
-	router.GET("/spotify/callback", callbackClientInjector)
+	router.GET("/spotify/callback", spotifyCallbackClientInjector)
+	router.GET("/slack/callback", slackCallbackClientInjector)
 
 	router.POST("/slack/events", eventsClientInjector)
 	router.POST("/slack/interactivity", interactionsClientInjector)
@@ -77,8 +78,12 @@ func spotifyTokenMaintenance() {
 	}
 }
 
-func callbackClientInjector(context *gin.Context) {
-	routes.CallbackFlow(context, globalClient)
+func slackCallbackClientInjector(context *gin.Context) {
+	routes.SlackCallbackFlow(context, globalClient)
+}
+
+func spotifyCallbackClientInjector(context *gin.Context) {
+	routes.SpotifyCallbackFlow(context, globalClient)
 }
 
 func eventsClientInjector(context *gin.Context) {

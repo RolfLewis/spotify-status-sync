@@ -50,7 +50,7 @@ func ExchangeCodeForTokens(code string, isRefresh bool, client *http.Client) (ma
 
 	// Check status codes
 	if authResp.StatusCode != http.StatusOK {
-		return nil, errors.New("Non-200 status code from auth endpoint: " + strconv.Itoa(authResp.StatusCode) + " / " + authResp.Status)
+		return nil, errors.New("Non-200 status code from spotify auth endpoint: " + strconv.Itoa(authResp.StatusCode) + " / " + authResp.Status)
 	}
 
 	// Read the tokens
