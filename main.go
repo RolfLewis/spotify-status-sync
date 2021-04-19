@@ -71,19 +71,23 @@ func statusSyncHelper() (int, error) {
 		var newStatus string
 		// Conditions where we should submit an empty status
 		if current != nil && current.IsPlaying {
-			// Build the new status
-			newStatus = "Listening to " + current.Item.Name + " by "
-			for index, artist := range current.Item.Artists {
-				// Comma separated list
-				if index > 0 {
-					newStatus += ", "
+			if current.CurrentlyPlayingType == "track" {
+				// Build the new status
+				newStatus = "Listening to " + current.Item.Name + " by "
+				for index, artist := range current.Item.Artists {
+					// Comma separated list
+					if index > 0 {
+						newStatus += ", "
+					}
+					// add artists name
+					newStatus += artist.Name
 				}
-				// add artists name
-				newStatus += artist.Name
+				newStatus += " on Spotify"
+			} else if current.CurrentlyPlayingType == "episode" {
+				// Build the new status
+				newStatus = "Listening to " + current.Item.Name + " (" + current.Item.Show.Name + ") by " + current.Item.Show.Publisher + " on Spotify"
 			}
-			newStatus += " on Spotify"
 		}
-
 		// Update the new status
 		updateError := slack.UpdateUserStatus(user, newStatus, globalClient)
 		if updateError != nil {

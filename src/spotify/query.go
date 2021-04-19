@@ -14,22 +14,20 @@ import (
 )
 
 type CurrentlyPlaying struct {
-	Timestamp            int    `json:"timestamp"`
-	ProgressMilliseconds int    `json:"progress_ms"`
 	IsPlaying            bool   `json:"is_playing"`
 	CurrentlyPlayingType string `json:"currently_playing_type"`
 	Item                 struct {
+		Show struct {
+			Name      string `json:"name"`
+			Publisher string `json:"publisher"`
+		} `json:"show"`
 		Artists []struct {
-			ID   string `json:"id"`
 			Name string `json:"name"`
-			Type string `json:"type"`
 		} `json:"artists"`
-		DurationMilliseconds int    `json:"duration_ms"`
-		IsExplicit           bool   `json:"explicit"`
-		ID                   string `json:"id"`
-		Name                 string `json:"name"`
-		Popularity           int    `json:"popularity"`
-		Type                 string `json:"type"`
+		IsExplicit bool   `json:"explicit"`
+		ID         string `json:"id"`
+		Name       string `json:"name"`
+		Type       string `json:"type"`
 	} `json:"item"`
 }
 
