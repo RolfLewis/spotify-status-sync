@@ -22,6 +22,13 @@ func userExists(user string) (bool, error) {
 	return true, nil
 }
 
+func GetAllConnectedUsers() ([]string, error) {
+	// Get all user ids where they have a connected spotify account
+	var users []string
+	selectError := appDatabase.Select(&users, "SELECT id FROM slackaccounts WHERE spotify_id IS NOT null")
+	return users, selectError
+}
+
 func EnsureUserExists(user string) error {
 	// Make sure that a user record exists for the user
 	exists, existsError := userExists(user)

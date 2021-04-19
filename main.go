@@ -46,9 +46,23 @@ func main() {
 
 	// Kick off the spotify token maintenance routine
 	go spotifyTokenMaintenance()
+	// Kick of the the currently playing query loop
+	go spotifyCurrentlyPlayingLoop()
 
 	// Stand up server
 	router.Run(":" + port)
+}
+
+func spotifyCurrentlyPlayingLoop() {
+	ticker := time.NewTicker(5 * time.Second)
+	for {
+		usersUpdated, updateError := spotify.GetAllCurrentlyPlayings(globalClient)
+		log.Println("Spotify Currently Playing queried for", usersUpdated, "users.")
+		if updateError != nil {
+			log.Println("Spotify Currently Playing Query exited early due to error:", updateError)
+		}
+		<-ticker.C // Block until ticker kicks a tick off
+	}
 }
 
 func spotifyTokenMaintenance() {
