@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -33,26 +32,8 @@ type CurrentlyPlaying struct {
 	} `json:"item"`
 }
 
-func GetAllCurrentlyPlayings(client *http.Client) (int, error) {
-	// Get all users who have spotify connected
-	users, usersError := database.GetAllConnectedUsers()
-	if usersError != nil {
-		return 0, usersError
-	}
-	// Get currently playing for each user
-	for index, user := range users {
-		current, currentError := getCurrentlyPlayingSongForUser(user, client)
-		if currentError != nil {
-			return index, currentError
-		}
-		log.Println(current.Item.Name, current.Item.Artists[0].Name)
-	}
-	// return success
-	return len(users), nil
-}
-
 // Returns the currently playing song struct, or error if error occurs. If the user is not playing anything or is in private session, currently playing is nil.
-func getCurrentlyPlayingSongForUser(user string, client *http.Client) (*CurrentlyPlaying, error) {
+func GetCurrentlyPlayingForUser(user string, client *http.Client) (*CurrentlyPlaying, error) {
 	// Get the data for this user
 	_, tokens, tokensError := database.GetSpotifyForUser(user)
 	if tokensError != nil {

@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"rolflewis.com/spotify-status-sync/src/database"
 	"rolflewis.com/spotify-status-sync/src/routes"
+	"rolflewis.com/spotify-status-sync/src/slack"
 	"rolflewis.com/spotify-status-sync/src/spotify"
 )
 
@@ -54,13 +55,34 @@ func main() {
 	router.Run(":" + port)
 }
 
+func statusSyncHelper() (int, error) {
+	// Get all users who have spotify connected
+	users, usersError := database.GetAllConnectedUsers()
+	if usersError != nil {
+		return 0, usersError
+	}
+	// Get currently playing for each user
+	for index, user := range users {
+		current, currentError := spotify.GetCurrentlyPlayingForUser(user, globalClient)
+		if currentError != nil {
+			return index, currentError
+		}
+		updateError := slack.UpdateUserStatus(user, current.Item.Name, globalClient)
+		if updateError != nil {
+			return index, updateError
+		}
+	}
+	// return success
+	return len(users), nil
+}
+
 func spotifyCurrentlyPlayingLoop() {
 	ticker := time.NewTicker(5 * time.Second)
 	for {
-		usersUpdated, updateError := spotify.GetAllCurrentlyPlayings(globalClient)
-		log.Println("Spotify Currently Playing queried for", usersUpdated, "users.")
+		usersUpdated, updateError := statusSyncHelper()
+		log.Println("Spotify Currently Playing synced for", usersUpdated, "users.")
 		if updateError != nil {
-			log.Println("Spotify Currently Playing Query exited early due to error:", updateError)
+			log.Println("Spotify Currently Playing Sync exited early due to error:", updateError)
 		}
 		<-ticker.C // Block until ticker kicks a tick off
 	}
