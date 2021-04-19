@@ -21,15 +21,6 @@ func SlackCallbackFlow(context *gin.Context, client *http.Client) {
 	// Read the auth code
 	code := context.Query("code")
 
-	// Read the user id (passed as state)
-	user := context.Query("state")
-
-	// if no state is somehow defined, bad request
-	if user == "" {
-		log.Println("No state/userid defined in callback request.")
-		context.String(http.StatusBadRequest, "No state/userid defined in callback request.")
-	}
-
 	// Exchange code for token
 	authResponse, exchangeError := slack.ExchangeCodeForToken(code, client)
 	if util.InternalError(exchangeError, context) {
@@ -49,23 +40,23 @@ func SlackCallbackFlow(context *gin.Context, client *http.Client) {
 	}
 
 	// Make sure we have a user record for the user
-	if util.InternalError(database.EnsureUserExists(user), context) {
+	if util.InternalError(database.EnsureUserExists(authResponse.AuthedUser.ID), context) {
 		return
 	}
 
 	// Set the user's team id
-	if util.InternalError(database.SetTeamForUser(user, authResponse.Team.ID), context) {
+	if util.InternalError(database.SetTeamForUser(authResponse.AuthedUser.ID, authResponse.Team.ID), context) {
 		return
 	}
 
 	// Save to user record
-	saveError := database.SaveSlackTokenForUser(user, authResponse.AuthedUser.AccessToken)
+	saveError := database.SaveSlackTokenForUser(authResponse.AuthedUser.ID, authResponse.AuthedUser.AccessToken)
 	if util.InternalError(saveError, context) {
 		return
 	}
 
 	// update the homepage view
-	viewError := slack.UpdateHome(user, client)
+	viewError := slack.UpdateHome(authResponse.AuthedUser.ID, client)
 	if util.InternalError(viewError, context) {
 		return
 	}

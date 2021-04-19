@@ -7,7 +7,7 @@ func addNewTeam(team string) error {
 
 func teamExists(team string) (bool, error) {
 	// Get the team
-	result, getError := getSingleString("SELECT id FROM team WHERE id=$1;", team)
+	result, getError := getSingleString("SELECT id FROM teams WHERE id=$1;", team)
 	return (result != ""), getError
 }
 
