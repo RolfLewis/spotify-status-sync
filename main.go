@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"rolflewis.com/spotify-status-sync/src/database"
@@ -35,7 +36,6 @@ func main() {
 	})
 
 	router.GET("/spotify/callback", callbackClientInjector)
-	router.GET("/refresh", testingWrapperForRefreshingSpotifyTokens)
 
 	router.POST("/slack/events", eventsClientInjector)
 	router.POST("/slack/interactivity", interactionsClientInjector)
@@ -44,15 +44,22 @@ func main() {
 	database.ConnectToDatabase()
 	database.ValidateSchema()
 
+	// Kick off the spotify token maintenance routine
+	go spotifyTokenMaintenance()
+
+	// Stand up server
 	router.Run(":" + port)
 }
 
-func testingWrapperForRefreshingSpotifyTokens(context *gin.Context) {
-	refreshError := spotify.RefreshExpiringTokens(globalClient)
-	if refreshError != nil {
-		context.String(http.StatusInternalServerError, refreshError.Error())
-	} else {
-		context.String(http.StatusOK, "Refreshed.")
+func spotifyTokenMaintenance() {
+	ticker := time.NewTicker(15 * time.Minute)
+	for {
+		usersRefreshed, refreshError := spotify.RefreshExpiringTokens(globalClient)
+		log.Println("Spotify token refresh function refreshed", usersRefreshed, "tokens.")
+		if refreshError != nil {
+			log.Println("Spotify token refresh function exited early due to error:", refreshError)
+		}
+		<-ticker.C // Block until ticker kicks a tick off
 	}
 }
 

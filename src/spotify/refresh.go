@@ -6,21 +6,21 @@ import (
 	"rolflewis.com/spotify-status-sync/src/database"
 )
 
-func RefreshExpiringTokens(client *http.Client) error {
+func RefreshExpiringTokens(client *http.Client) (int, error) {
 	// Get the list of users who need to be refreshed
-	users, usersError := database.GetAllUsersWhoExpireWithinXMinutes(20000)
+	users, usersError := database.GetAllUsersWhoExpireWithinXMinutes(20)
 	if usersError != nil {
-		return usersError
+		return 0, usersError
 	}
 	// Refresh each user
-	for _, user := range users {
+	for index, user := range users {
 		refreshError := refreshTokenForUser(user, client)
 		if refreshError != nil {
-			return refreshError
+			return index, refreshError
 		}
 	}
 	// Return success
-	return nil
+	return len(users), nil
 }
 
 func refreshTokenForUser(user string, client *http.Client) error {
