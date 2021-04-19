@@ -18,7 +18,7 @@ type UserProfile struct {
 	Profile struct {
 		StatusText       string `json:"status_text"`
 		StatusEmoji      string `json:"status_emoji"`
-		StatusExpiration string `json:"status_expiration"`
+		StatusExpiration int    `json:"status_expiration"`
 	} `json:"profile"`
 	Error string `json:"error"`
 }
