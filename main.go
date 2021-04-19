@@ -67,7 +67,20 @@ func statusSyncHelper() (int, error) {
 		if currentError != nil {
 			return index, currentError
 		}
-		updateError := slack.UpdateUserStatus(user, current.Item.Name, globalClient)
+		// Build the new status
+		newStatus := "Listening to " + current.Item.Name + " by "
+		for index, artist := range current.Item.Artists {
+			// Comma separated list
+			if index > 0 {
+				newStatus += ", "
+			}
+			// add artists name
+			newStatus += artist.Name
+		}
+		newStatus += " on Spotify"
+
+		// Update the new status
+		updateError := slack.UpdateUserStatus(user, newStatus, globalClient)
 		if updateError != nil {
 			return index, updateError
 		}
