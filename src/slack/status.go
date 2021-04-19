@@ -70,8 +70,9 @@ func canOverwriteStatus(profile *UserProfile) bool {
 	if profile.Profile.StatusEmoji != "" && profile.Profile.StatusEmoji != ":musical_note:" {
 		return false
 	}
-	// Don't overwrite if the status isn't blank and doesn't contain a dash surrounded by spaces
-	regex := regexp.MustCompile(`Listening to .* by .* on Spotify`)
+	// Don't overwrite if the status isn't blank and isn't of our format
+	// Has to be the most vague format we use, which is the catch-all over-limit fallback which only features name.
+	regex := regexp.MustCompile(`Listening to .* on Spotify`)
 	if profile.Profile.StatusText != "" && !regex.MatchString(profile.Profile.StatusText) {
 		return false
 	}
