@@ -148,7 +148,7 @@ func GetSlackForUser(user string) (string, error) {
 func GetStatusForUser(user string) (string, error) {
 	// Get the status string for the user
 	var status string
-	getError := appDatabase.Get(&status, "SELECT status FROM slackaccounts WHERE id=$1", user)
+	getError := appDatabase.Get(&status, "SELECT status FROM slackaccounts WHERE id=$1 AND status IS NOT null;", user)
 	if getError == sql.ErrNoRows {
 		return "", nil // Nothing to return
 	} else if getError != nil {
