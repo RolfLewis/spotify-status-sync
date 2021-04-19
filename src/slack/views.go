@@ -233,6 +233,7 @@ func UpdateHome(user string, client *http.Client) error {
 		}`
 	}
 
+	newView += "]}}" // Close blocks array, view object, and then json
 	log.Println(newView)
 	return updateHomeHelper(newView, client)
 }
