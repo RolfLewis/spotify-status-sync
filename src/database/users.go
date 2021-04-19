@@ -25,7 +25,7 @@ func userExists(user string) (bool, error) {
 func GetAllConnectedUsers() ([]string, error) {
 	// Get all user ids where they have a connected spotify account
 	var users []string
-	selectError := appDatabase.Select(&users, "SELECT id FROM slackaccounts WHERE spotify_id IS NOT null")
+	selectError := appDatabase.Select(&users, "SELECT id FROM slackaccounts WHERE accesstoken IS NOT null AND spotify_id IS NOT null;")
 	return users, selectError
 }
 
@@ -63,7 +63,7 @@ func AddSpotifyToUser(user string, id string, accessToken string, refreshToken s
 	}
 
 	// Tie the slack account to the spotify user
-	results, rowUpdateError := transaction.Exec("UPDATE slackaccounts SET spotify_id=$1 WHERE id=$2", id, user)
+	results, rowUpdateError := transaction.Exec("UPDATE slackaccounts SET spotify_id=$1 WHERE id=$2;", id, user)
 	if rowUpdateError != nil {
 		return rollbackOnError(transaction, rowUpdateError)
 	}
@@ -91,7 +91,7 @@ func AddSpotifyToUser(user string, id string, accessToken string, refreshToken s
 
 func SaveSlackTokenForUser(user string, token string) error {
 	// Set the access token on the user record
-	results, rowUpdateError := appDatabase.Exec("UPDATE slackaccounts SET accesstoken=$1 WHERE id=$2", token, user)
+	results, rowUpdateError := appDatabase.Exec("UPDATE slackaccounts SET accesstoken=$1 WHERE id=$2;", token, user)
 	if rowUpdateError != nil {
 		return rowUpdateError
 	}
@@ -111,14 +111,14 @@ func SaveSlackTokenForUser(user string, token string) error {
 func GetSpotifyForUser(user string) (string, []string, error) {
 	// Get the spotify ID from the user
 	var spotifyID string
-	getError := appDatabase.Get(&spotifyID, "SELECT spotify_id FROM slackaccounts WHERE id=$1 AND spotify_id IS NOT null", user)
+	getError := appDatabase.Get(&spotifyID, "SELECT spotify_id FROM slackaccounts WHERE id=$1 AND spotify_id IS NOT null;", user)
 	if getError == sql.ErrNoRows {
 		return "", nil, nil // Nothing to return
 	} else if getError != nil {
 		return "", nil, getError
 	}
 	// Get the spotify tokens
-	fields, tokensScanError := appDatabase.QueryRowx("SELECT accessToken, refreshToken FROM spotifyaccounts WHERE id=$1", spotifyID).SliceScan()
+	fields, tokensScanError := appDatabase.QueryRowx("SELECT accessToken, refreshToken FROM spotifyaccounts WHERE id=$1;", spotifyID).SliceScan()
 	if tokensScanError != nil { // This row must exist because of the FK relationship so we don't need to test for row count
 		return "", nil, tokensScanError
 	}
@@ -136,7 +136,7 @@ func GetSpotifyForUser(user string) (string, []string, error) {
 func GetSlackForUser(user string) (string, error) {
 	// Get the token for the user
 	var token string
-	getError := appDatabase.Get(&token, "SELECT accessToken FROM slackaccounts WHERE id=$1 AND accessToken IS NOT null", user)
+	getError := appDatabase.Get(&token, "SELECT accessToken FROM slackaccounts WHERE id=$1 AND accessToken IS NOT null;", user)
 	if getError == sql.ErrNoRows {
 		return "", nil // Nothing to return
 	} else if getError != nil {
@@ -148,7 +148,7 @@ func GetSlackForUser(user string) (string, error) {
 func DeleteAllDataForUser(user string) error {
 	// Get the spotify account id for the user
 	var spotifyID string
-	scanError := appDatabase.QueryRowx("SELECT spotify_id FROM slackaccounts WHERE id=$1 AND spotify_id IS NOT null", user).Scan(&spotifyID)
+	scanError := appDatabase.QueryRowx("SELECT spotify_id FROM slackaccounts WHERE id=$1 AND spotify_id IS NOT null;", user).Scan(&spotifyID)
 	if scanError != nil && scanError != sql.ErrNoRows {
 		return scanError
 	}
@@ -159,7 +159,7 @@ func DeleteAllDataForUser(user string) error {
 	}
 	// Delete the spotify record
 	if spotifyID != "" {
-		_, spotifyDeleteError := appDatabase.Exec("DELETE FROM spotifyaccounts WHERE id=$1", spotifyID)
+		_, spotifyDeleteError := appDatabase.Exec("DELETE FROM spotifyaccounts WHERE id=$1;", spotifyID)
 		return spotifyDeleteError
 	}
 	// No spotify data to delete
@@ -172,7 +172,7 @@ func GetAllUsersWhoExpireWithinXMinutes(minutes int) ([]string, error) {
 
 	// Get user id where spotify expires in less than x minutes
 	var users []string
-	selectError := appDatabase.Select(&users, "SELECT slackaccounts.id FROM slackaccounts LEFT JOIN spotifyaccounts on slackaccounts.spotify_id = spotifyaccounts.id WHERE spotifyaccounts.expirationAt <= $1", cutoff)
+	selectError := appDatabase.Select(&users, "SELECT slackaccounts.id FROM slackaccounts LEFT JOIN spotifyaccounts on slackaccounts.spotify_id = spotifyaccounts.id WHERE spotifyaccounts.expirationAt <= $1;", cutoff)
 	if selectError != nil {
 		return nil, selectError
 	}

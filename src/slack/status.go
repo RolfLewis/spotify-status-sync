@@ -4,10 +4,13 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"strconv"
+
+	"rolflewis.com/spotify-status-sync/src/database"
 )
 
 type UserProfile struct {
@@ -21,6 +24,12 @@ type UserProfile struct {
 }
 
 func UpdateUserStatus(user string, newStatus string, client *http.Client) error {
+	// Read the status
+	profile, readError := getUserStatus(user, client)
+	if readError != nil {
+		return readError
+	}
+	log.Println(profile.Profile.StatusText)
 	// WIP
 	return nil
 }
@@ -34,8 +43,13 @@ func getUserStatus(user string, client *http.Client) (*UserProfile, error) {
 	if songReqError != nil {
 		return nil, songReqError
 	}
+	// Get the token for this user
+	token, tokenError := database.GetSlackForUser(user)
+	if tokenError != nil {
+		return nil, tokenError
+	}
 	// Add auth
-	songReq.Header.Add("Authorization", "Bearer "+os.Getenv("SLACK_BEARER_TOKEN"))
+	songReq.Header.Add("Authorization", "Bearer "+token)
 	// Send the request
 	songResp, songRespError := client.Do(songReq)
 	if songRespError != nil {
