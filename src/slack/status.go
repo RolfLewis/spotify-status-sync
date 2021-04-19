@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"strconv"
-	"strings"
 
 	"rolflewis.com/spotify-status-sync/src/database"
 )
@@ -54,7 +54,8 @@ func canOverwriteStatus(profile *UserProfile) bool {
 		return false
 	}
 	// Don't overwrite if the status isn't blank and doesn't contain a dash surrounded by spaces
-	if profile.Profile.StatusText != "" && !strings.Contains(profile.Profile.StatusText, " - ") {
+	regex := regexp.MustCompile(`Listening to .* by .* on Spotify`)
+	if profile.Profile.StatusText != "" && !regex.MatchString(profile.Profile.StatusText) {
 		return false
 	}
 
