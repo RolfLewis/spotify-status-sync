@@ -125,11 +125,16 @@ func getUserStatus(user string, client *http.Client) (*UserProfile, error) {
 }
 
 func setUserStatus(user string, newStatus string, client *http.Client) error {
+	// Select the emoji for the status - if the status is blank, clear the emoji
+	var emoji string
+	if newStatus != "" {
+		emoji = ":musical_note:"
+	}
 	// Create the json body
 	bodyStruct := statusSetBody{
 		Profile: profile{
 			StatusText:       newStatus,
-			StatusEmoji:      ":musical_note:",
+			StatusEmoji:      emoji,
 			StatusExpiration: 0,
 		},
 	}
