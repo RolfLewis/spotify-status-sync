@@ -41,7 +41,7 @@ func ExchangeCodeForToken(code string, client *http.Client) (*string, error) {
 	queryValues.Set("redirect_uri", os.Getenv("APP_URL")+"slack/callback")
 
 	// Get the auth and refresh tokens
-	authReq, authReqError := http.NewRequest(http.MethodPost, os.Getenv("SLACK_AUTH_URL")+"oauth.v2.access?"+queryValues.Encode(), nil)
+	authReq, authReqError := http.NewRequest(http.MethodPost, os.Getenv("SLACK_API_URL")+"oauth.v2.access?"+queryValues.Encode(), nil)
 	if authReqError != nil {
 		return nil, authReqError
 	}
