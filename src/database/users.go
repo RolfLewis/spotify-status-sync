@@ -139,6 +139,7 @@ func SetStatusForUser(user string, status string) error {
 
 func updateRow(mustEffect bool, query string, params ...interface{}) error {
 	// Update the row
+	log.Println(query, params)
 	results, rowUpdateError := appDatabase.Exec(query, params...)
 	if rowUpdateError != nil {
 		return rowUpdateError
