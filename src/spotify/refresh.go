@@ -8,7 +8,7 @@ import (
 
 func RefreshExpiringTokens(client *http.Client) error {
 	// Get the list of users who need to be refreshed
-	users, usersError := database.GetAllUsersWhoExpireWithinXMinutes(20)
+	users, usersError := database.GetAllUsersWhoExpireWithinXMinutes(20000)
 	if usersError != nil {
 		return usersError
 	}
