@@ -6,9 +6,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"rolflewis.com/spotify-status-sync/src/database"
+	"rolflewis.com/spotify-status-sync/src/slack"
 	"rolflewis.com/spotify-status-sync/src/spotify"
 	"rolflewis.com/spotify-status-sync/src/util"
-	"rolflewis.com/spotify-status-sync/src/views"
 )
 
 type SpotifyAuthResponse struct {
@@ -69,7 +69,7 @@ func CallbackFlow(context *gin.Context, client *http.Client) {
 	}
 
 	// update the homepage view
-	viewError := views.CreateReturningHomepage(user, client)
+	viewError := slack.CreateReturningHomepage(user, client)
 	if util.InternalError(viewError, context) {
 		return
 	}

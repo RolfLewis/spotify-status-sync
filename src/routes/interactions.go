@@ -7,8 +7,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"rolflewis.com/spotify-status-sync/src/database"
+	"rolflewis.com/spotify-status-sync/src/slack"
 	"rolflewis.com/spotify-status-sync/src/util"
-	"rolflewis.com/spotify-status-sync/src/views"
 )
 
 // A generic struct that contains "header" data available on all interaction payloads
@@ -115,7 +115,7 @@ func InteractivityEndpoint(context *gin.Context, client *http.Client) {
 				return
 			}
 			// After removing the data, reset the user's app home view back to the new user flow
-			viewError := views.CreateNewUserHomepage(interaction.User.ID, client)
+			viewError := slack.CreateNewUserHomepage(interaction.User.ID, client)
 			if util.InternalError(viewError, context) {
 				return
 			}

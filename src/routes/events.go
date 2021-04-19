@@ -6,8 +6,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"rolflewis.com/spotify-status-sync/src/database"
+	"rolflewis.com/spotify-status-sync/src/slack"
 	"rolflewis.com/spotify-status-sync/src/util"
-	"rolflewis.com/spotify-status-sync/src/views"
 )
 
 type eventWrapper struct {
@@ -65,12 +65,12 @@ func EventsEndpoint(context *gin.Context, client *http.Client) {
 		log.Println("Spotify for user:", profileID)
 
 		if profileID == "" { // Serve a new welcome screen
-			pageError := views.CreateNewUserHomepage(event.User, client)
+			pageError := slack.CreateNewUserHomepage(event.User, client)
 			if util.InternalError(pageError, context) {
 				return
 			}
 		} else { // Serve an all-set screen
-			pageError := views.CreateReturningHomepage(event.User, client)
+			pageError := slack.CreateReturningHomepage(event.User, client)
 			if util.InternalError(pageError, context) {
 				return
 			}
