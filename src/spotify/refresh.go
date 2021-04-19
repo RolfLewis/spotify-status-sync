@@ -31,7 +31,7 @@ func refreshTokenForUser(user string, client *http.Client) error {
 	}
 
 	// Exchange code for tokens
-	tokensMap, exchangeError := ExchangeCodeForTokens(oldTokens[0], true, client)
+	tokensMap, exchangeError := ExchangeCodeForTokens(oldTokens[1], true, client)
 	if exchangeError != nil {
 		return exchangeError
 	}
