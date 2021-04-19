@@ -35,10 +35,10 @@ func main() {
 	})
 
 	router.GET("/spotify/callback", callbackClientInjector)
+	router.GET("/refresh", testingWrapperForRefreshingSpotifyTokens)
 
 	router.POST("/slack/events", eventsClientInjector)
 	router.POST("/slack/interactivity", interactionsClientInjector)
-	router.POST("/refresh", testingWrapperForRefreshingSpotifyTokens)
 
 	// Database setup
 	database.ConnectToDatabase()
