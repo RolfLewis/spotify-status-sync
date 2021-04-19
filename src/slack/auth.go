@@ -32,7 +32,7 @@ type slackAuthResponse struct {
 		Scope       string `json:"scope"`
 		AccessToken string `json:"access_token"`
 		TokenType   string `json:"token_type"`
-	}
+	} `json:"authed_user"`
 }
 
 func ExchangeCodeForToken(code string, client *http.Client) (*string, error) {
