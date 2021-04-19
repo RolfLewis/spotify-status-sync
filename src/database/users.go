@@ -3,8 +3,9 @@ package database
 import (
 	"database/sql"
 	"errors"
-	"log"
 	"time"
+
+	"github.com/jmoiron/sqlx"
 )
 
 func addNewUser(user string) error {
@@ -51,8 +52,6 @@ func AddSpotifyToUser(user string, id string, accessToken string, refreshToken s
 		return rollbackOnError(transaction, transactionError)
 	}
 
-	log.Println("Values in spotify add:", user, id, accessToken, refreshToken, expiresIn)
-
 	// Insert the new spotify record
 	expirationTime := time.Now().Add(time.Second * time.Duration(expiresIn))
 	_, rowUpsertError := transaction.Exec("INSERT INTO spotifyaccounts VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO UPDATE SET accessToken=$2, refreshToken=$3, expirationAt=$4;", id, accessToken, refreshToken, expirationTime)
@@ -61,7 +60,7 @@ func AddSpotifyToUser(user string, id string, accessToken string, refreshToken s
 	}
 
 	// Tie the slack account to the spotify user
-	updateError := updateRow(true, "UPDATE slackaccounts SET spotify_id=$1 WHERE id=$2;", id, user)
+	updateError := updateRow(transaction, true, "UPDATE slackaccounts SET spotify_id=$1 WHERE id=$2;", id, user)
 	if updateError != nil {
 		return rollbackOnError(transaction, updateError)
 	}
@@ -78,7 +77,7 @@ func AddSpotifyToUser(user string, id string, accessToken string, refreshToken s
 
 func SaveSlackTokenForUser(user string, token string) error {
 	// Update this record
-	return updateRow(true, "UPDATE slackaccounts SET accesstoken=$1 WHERE id=$2;", token, user)
+	return updateRow(nil, true, "UPDATE slackaccounts SET accesstoken=$1 WHERE id=$2;", token, user)
 }
 
 func GetSpotifyForUser(user string) (string, []string, error) {
@@ -134,13 +133,19 @@ func getSingleString(query string, params ...interface{}) (string, error) {
 
 func SetStatusForUser(user string, status string) error {
 	// Update this record
-	return updateRow(true, "UPDATE slackaccounts SET status=$1 WHERE id=$2;", status, user)
+	return updateRow(nil, true, "UPDATE slackaccounts SET status=$1 WHERE id=$2;", status, user)
 }
 
-func updateRow(mustEffect bool, query string, params ...interface{}) error {
-	// Update the row
-	log.Println(query, params)
-	results, rowUpdateError := appDatabase.Exec(query, params...)
+func updateRow(transaction *sqlx.Tx, mustEffect bool, query string, params ...interface{}) error {
+	// If transaction is given, use it. If not, use the DB pool
+	var results sql.Result
+	var rowUpdateError error
+	if transaction != nil {
+		results, rowUpdateError = transaction.Exec(query, params...)
+	} else {
+		results, rowUpdateError = appDatabase.Exec(query, params...)
+	}
+
 	if rowUpdateError != nil {
 		return rowUpdateError
 	}

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -68,8 +67,6 @@ func ExchangeCodeForToken(code string, client *http.Client) (*string, error) {
 	if readError != nil {
 		return nil, readError
 	}
-
-	log.Println(string(jsonBytes))
 
 	var response slackAuthResponse
 	jsonError := json.Unmarshal(jsonBytes, &response)
