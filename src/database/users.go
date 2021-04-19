@@ -82,7 +82,7 @@ func AddSpotifyToUser(user string, id string, accessToken string, refreshToken s
 	return nil
 }
 
-func GetSpotifyForUser(user string) (string, []interface{}, error) {
+func GetSpotifyForUser(user string) (string, []string, error) {
 	// Get the spotify ID from the session
 	var spotifyID string
 	scanError := appDatabase.QueryRowx("SELECT spotify_id FROM slackaccounts WHERE id=$1 AND spotify_id IS NOT null", user).Scan(&spotifyID)
@@ -96,8 +96,15 @@ func GetSpotifyForUser(user string) (string, []interface{}, error) {
 	if tokensScanError != nil { // This row must exist because of the FK relationship so we don't need to test for row count
 		return "", nil, tokensScanError
 	}
+
+	// Convert interface array to strings array
+	tokens := []string{
+		fields[0].(string),
+		fields[1].(string),
+	}
+
 	// Read the tokens into an object and return
-	return spotifyID, fields, nil
+	return spotifyID, tokens, nil
 }
 
 func DeleteAllDataForUser(user string) error {
@@ -119,4 +126,19 @@ func DeleteAllDataForUser(user string) error {
 	}
 	// No spotify data to delete
 	return nil
+}
+
+func GetAllUsersWhoExpireWithinXMinutes(minutes int) ([]string, error) {
+	// Calculate the expiration timeframe
+	cutoff := time.Now().Add(time.Minute * time.Duration(minutes))
+
+	// Get user id where spotify expires in less than x minutes
+	var users []string
+	selectError := appDatabase.Select(&users, "SELECT slackaccounts.id FROM slackaccounts LEFT JOIN spotifyaccounts on slackaccounts.spotify_id = spotifyaccounts.id WHERE spotifyaccounts.expirationAt <= $1", cutoff)
+	if selectError != nil {
+		return nil, selectError
+	}
+
+	// Return the list of users
+	return users, nil
 }

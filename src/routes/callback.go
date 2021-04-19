@@ -44,7 +44,7 @@ func CallbackFlow(context *gin.Context, client *http.Client) {
 	}
 
 	// Exchange code for tokens
-	tokensMap, exchangeError := spotify.ExchangeCodeForTokens(code, client)
+	tokensMap, exchangeError := spotify.ExchangeCodeForTokens(code, false, client)
 	if util.InternalError(exchangeError, context) {
 		return
 	}
@@ -53,7 +53,7 @@ func CallbackFlow(context *gin.Context, client *http.Client) {
 	tokens := SpotifyAuthResponse{
 		AccessToken:  tokensMap["access_token"].(string),
 		RefreshToken: tokensMap["refresh_token"].(string),
-		ExpiresIn:    int(tokensMap["expires_in"].(float64)),
+		ExpiresIn:    int(tokensMap["expires_in"].(float64)), // we don't care about the fractional here because of how we will handle refreshes
 	}
 
 	// Get the user's profile information

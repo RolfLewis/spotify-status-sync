@@ -12,12 +12,19 @@ import (
 	"strings"
 )
 
-func ExchangeCodeForTokens(code string, client *http.Client) (map[string]interface{}, error) {
+func ExchangeCodeForTokens(code string, isRefresh bool, client *http.Client) (map[string]interface{}, error) {
 	// Set the query values
 	queryValues := url.Values{}
-	queryValues.Set("grant_type", "authorization_code")
-	queryValues.Set("code", code)
-	queryValues.Set("redirect_uri", os.Getenv("APP_URL")+"spotify/callback")
+
+	// Set the query urls differently depending on if this is a refresh or not
+	if isRefresh {
+		queryValues.Set("grant_type", "refresh_token")
+		queryValues.Set("refresh_token", code)
+	} else {
+		queryValues.Set("grant_type", "authorization_code")
+		queryValues.Set("code", code)
+		queryValues.Set("redirect_uri", os.Getenv("APP_URL")+"spotify/callback")
+	}
 	urlEncodedBody := queryValues.Encode()
 
 	// Get the auth and refresh tokens

@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"rolflewis.com/spotify-status-sync/src/database"
 	"rolflewis.com/spotify-status-sync/src/routes"
+	"rolflewis.com/spotify-status-sync/src/spotify"
 )
 
 var globalClient *http.Client
@@ -20,6 +21,10 @@ func main() {
 		log.Fatal("$PORT must be set")
 	}
 
+	// Create the global spotify client
+	globalClient = http.DefaultClient
+
+	// Create routes
 	router := gin.New()
 	router.Use(gin.Logger())
 	router.LoadHTMLGlob("templates/*.tmpl.html")
@@ -33,15 +38,22 @@ func main() {
 
 	router.POST("/slack/events", eventsClientInjector)
 	router.POST("/slack/interactivity", interactionsClientInjector)
-
-	// Create the global spotify client
-	globalClient = http.DefaultClient
+	router.POST("/refresh", testingWrapperForRefreshingSpotifyTokens)
 
 	// Database setup
 	database.ConnectToDatabase()
 	database.ValidateSchema()
 
 	router.Run(":" + port)
+}
+
+func testingWrapperForRefreshingSpotifyTokens(context *gin.Context) {
+	refreshError := spotify.RefreshExpiringTokens(globalClient)
+	if refreshError != nil {
+		context.String(http.StatusInternalServerError, refreshError.Error())
+	} else {
+		context.String(http.StatusOK, "Refreshed.")
+	}
 }
 
 func callbackClientInjector(context *gin.Context) {
