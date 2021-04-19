@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -68,7 +67,6 @@ func GetCurrentlyPlayingForUser(user string, client *http.Client) (*CurrentlyPla
 	if readError != nil {
 		return nil, readError
 	}
-	log.Println(string(jsonBytes))
 	// unmarshal into struct
 	var current CurrentlyPlaying
 	jsonError := json.Unmarshal(jsonBytes, &current)
