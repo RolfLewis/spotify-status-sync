@@ -88,7 +88,7 @@ func UpdateHome(user string, client *http.Client) error {
 					}
 				},`
 
-	if slackConnected || spotifyConnected {
+	if !noneConnected {
 		newView += `{
 			"type": "section",
 			"text": {
@@ -101,7 +101,7 @@ func UpdateHome(user string, client *http.Client) error {
 			"type": "section",
 			"text": {
 				"type": "mrkdwn",
-				"text": "You can disconnect your Slack and Spotify accounts at any time. Once you have them connected, this screen will update to include a 'disconnect' button. That button will immediately erase all information that the app saves about your accounts and clear your status if it is set by the app."
+				"text": "You can disconnect your Slack and Spotify accounts at any time. Once you have them connected, this page will update to include a 'disconnect' button. That button will immediately erase all information that the app saves about your accounts and clear your status if it is set by the app."
 			}
 		},`
 	}
@@ -165,7 +165,7 @@ func UpdateHome(user string, client *http.Client) error {
 					"type": "mrkdwn",
 					"text": "Spotify is connected and ready to go!"
 				}
-			},`
+			}`
 		} else {
 			// Set the query values
 			spotifyQueryValues := url.Values{}
@@ -199,13 +199,13 @@ func UpdateHome(user string, client *http.Client) error {
 		}
 
 		if !noneConnected {
-			newView += `{
+			newView += `,{
 				"type": "divider"
 			},`
 		}
 	}
 
-	if slackConnected || spotifyConnected {
+	if !noneConnected {
 		newView += `{
 			"type": "section",
 			"text": {
