@@ -12,14 +12,9 @@ func addNewUser(user string) error {
 }
 
 func userExists(user string) (bool, error) {
-	var id string
-	scanError := appDatabase.QueryRowx("SELECT id FROM slackaccounts WHERE id=$1", user).Scan(&id)
-	if scanError == sql.ErrNoRows {
-		return false, nil
-	} else if scanError != nil {
-		return false, scanError
-	}
-	return true, nil
+	// Get the user
+	result, getError := getSingleValue("SELECT id FROM slackaccounts WHERE id=$1", user)
+	return (result != nil), getError
 }
 
 func GetAllConnectedUsers() ([]string, error) {
@@ -63,20 +58,9 @@ func AddSpotifyToUser(user string, id string, accessToken string, refreshToken s
 	}
 
 	// Tie the slack account to the spotify user
-	results, rowUpdateError := transaction.Exec("UPDATE slackaccounts SET spotify_id=$1 WHERE id=$2;", id, user)
-	if rowUpdateError != nil {
-		return rollbackOnError(transaction, rowUpdateError)
-	}
-
-	// Check to make sure a row was found
-	rowsAffected, affectedError := results.RowsAffected()
-	if affectedError != nil {
-		return rollbackOnError(transaction, affectedError)
-	}
-
-	// If no rows were overwritten, then nothing had that ID
-	if rowsAffected == 0 {
-		return rollbackOnError(transaction, errors.New("No slack account record exists with this user id"))
+	updateError := updateRow(true, "UPDATE slackaccounts SET spotify_id=$1 WHERE id=$2;", id, user)
+	if updateError != nil {
+		return rollbackOnError(transaction, updateError)
 	}
 
 	// Commit the transaction to the DB
@@ -90,33 +74,19 @@ func AddSpotifyToUser(user string, id string, accessToken string, refreshToken s
 }
 
 func SaveSlackTokenForUser(user string, token string) error {
-	// Set the access token on the user record
-	results, rowUpdateError := appDatabase.Exec("UPDATE slackaccounts SET accesstoken=$1 WHERE id=$2;", token, user)
-	if rowUpdateError != nil {
-		return rowUpdateError
-	}
-	// Check to make sure a row was found
-	rowsAffected, affectedError := results.RowsAffected()
-	if affectedError != nil {
-		return affectedError
-	}
-	// If no rows were overwritten, then nothing had that ID
-	if rowsAffected == 0 {
-		return errors.New("No slack account record exists with this user id")
-	}
-	// return success
-	return nil
+	// Update this record
+	return updateRow(true, "UPDATE slackaccounts SET accesstoken=$1 WHERE id=$2;", token, user)
 }
 
 func GetSpotifyForUser(user string) (string, []string, error) {
 	// Get the spotify ID from the user
-	var spotifyID string
-	getError := appDatabase.Get(&spotifyID, "SELECT spotify_id FROM slackaccounts WHERE id=$1 AND spotify_id IS NOT null;", user)
-	if getError == sql.ErrNoRows {
-		return "", nil, nil // Nothing to return
-	} else if getError != nil {
+	spotifyID, getError := getSingleValue("SELECT spotify_id FROM slackaccounts WHERE id=$1 AND spotify_id IS NOT null;", user)
+	if getError != nil {
 		return "", nil, getError
+	} else if spotifyID == nil {
+		return "", nil, nil
 	}
+
 	// Get the spotify tokens
 	fields, tokensScanError := appDatabase.QueryRowx("SELECT accessToken, refreshToken FROM spotifyaccounts WHERE id=$1;", spotifyID).SliceScan()
 	if tokensScanError != nil { // This row must exist because of the FK relationship so we don't need to test for row count
@@ -130,47 +100,52 @@ func GetSpotifyForUser(user string) (string, []string, error) {
 	}
 
 	// Read the tokens into an object and return
-	return spotifyID, tokens, nil
+	return spotifyID.(string), tokens, nil
 }
 
 func GetSlackForUser(user string) (string, error) {
 	// Get the token for the user
-	var token string
-	getError := appDatabase.Get(&token, "SELECT accessToken FROM slackaccounts WHERE id=$1 AND accessToken IS NOT null;", user)
-	if getError == sql.ErrNoRows {
-		return "", nil // Nothing to return
-	} else if getError != nil {
-		return "", getError
-	}
-	return token, nil
+	token, getError := getSingleValue("SELECT accessToken FROM slackaccounts WHERE id=$1 AND accessToken IS NOT null;", user)
+	return token.(string), getError
 }
 
 func GetStatusForUser(user string) (string, error) {
 	// Get the status string for the user
-	var status string
-	getError := appDatabase.Get(&status, "SELECT status FROM slackaccounts WHERE id=$1 AND status IS NOT null;", user)
-	if getError == sql.ErrNoRows {
-		return "", nil // Nothing to return
-	} else if getError != nil {
-		return "", getError
+	status, getError := getSingleValue("SELECT status FROM slackaccounts WHERE id=$1 AND status IS NOT null;", user)
+	return status.(string), getError
+}
+
+func getSingleValue(query string, params ...interface{}) (interface{}, error) {
+	var object interface{}
+	getError := appDatabase.Get(&object, query, params...)
+	if getError != nil && getError != sql.ErrNoRows {
+		return nil, getError
 	}
-	return status, nil
+	return object, nil
 }
 
 func SetStatusForUser(user string, status string) error {
-	// Upsert this record
-	results, rowUpdateError := appDatabase.Exec("UPDATE slackaccounts SET status=$1 WHERE id=$2;", status, user)
+	// Update this record
+	return updateRow(true, "UPDATE slackaccounts SET status=$1 WHERE id=$2;", status, user)
+}
+
+func updateRow(mustEffect bool, query string, params ...interface{}) error {
+	// Update the row
+	results, rowUpdateError := appDatabase.Exec(query, params...)
 	if rowUpdateError != nil {
 		return rowUpdateError
 	}
-	// Check to make sure a row was found
-	rowsAffected, affectedError := results.RowsAffected()
-	if affectedError != nil {
-		return affectedError
-	}
-	// If no rows were overwritten, then nothing had that ID
-	if rowsAffected == 0 {
-		return errors.New("No slack account record exists with this user id")
+	// If mustEffect, we throw an error when no row was affected
+	if mustEffect {
+		// Check to make sure a row was found
+		rowsAffected, affectedError := results.RowsAffected()
+		if affectedError != nil {
+			return affectedError
+		}
+		// If no rows were overwritten, then nothing had that ID
+		if rowsAffected == 0 {
+			return errors.New("No row was modified during update, and mustEffect is set to true.")
+		}
 	}
 	// return success
 	return nil
