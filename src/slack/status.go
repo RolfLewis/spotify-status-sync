@@ -1,26 +1,33 @@
 package slack
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 
 	"rolflewis.com/spotify-status-sync/src/database"
 )
 
 type UserProfile struct {
-	IsOk    bool `json:"ok"`
-	Profile struct {
-		StatusText       string `json:"status_text"`
-		StatusEmoji      string `json:"status_emoji"`
-		StatusExpiration int    `json:"status_expiration"`
-	} `json:"profile"`
-	Error string `json:"error"`
+	IsOk    bool    `json:"ok"`
+	Profile profile `json:"profile"`
+	Error   string  `json:"error"`
+}
+
+type statusSetBody struct {
+	Profile profile `json:"profile"`
+}
+
+type profile struct {
+	StatusText       string `json:"status_text"`
+	StatusEmoji      string `json:"status_emoji"`
+	StatusExpiration int    `json:"status_expiration"`
 }
 
 func UpdateUserStatus(user string, newStatus string, client *http.Client) error {
@@ -29,9 +36,29 @@ func UpdateUserStatus(user string, newStatus string, client *http.Client) error 
 	if readError != nil {
 		return readError
 	}
-	log.Println(profile.Profile.StatusText)
-	// WIP
+	// Check if we can overwrite, and do so if we can
+	if canOverwriteStatus(profile) {
+		setError := setUserStatus(user, newStatus, client)
+		return setError
+	}
 	return nil
+}
+
+func canOverwriteStatus(profile *UserProfile) bool {
+	// Don't overwrite if the status has an expiration
+	if profile.Profile.StatusExpiration != 0 {
+		return false
+	}
+	// Don't overwrite if the emoji is not :musical_note: or blank
+	if profile.Profile.StatusEmoji != "" && profile.Profile.StatusEmoji != ":musical_note:" {
+		return false
+	}
+	// Don't overwrite if the status isn't blank and doesn't contain a dash surrounded by spaces
+	if profile.Profile.StatusText != "" && !strings.Contains(profile.Profile.StatusText, " - ") {
+		return false
+	}
+
+	return true
 }
 
 func getUserStatus(user string, client *http.Client) (*UserProfile, error) {
@@ -77,4 +104,48 @@ func getUserStatus(user string, client *http.Client) (*UserProfile, error) {
 	}
 	// Return success
 	return &profile, nil
+}
+
+func setUserStatus(user string, newStatus string, client *http.Client) error {
+	// Create the json body
+	bodyStruct := statusSetBody{
+		Profile: profile{
+			StatusText:       newStatus,
+			StatusEmoji:      ":musical_note:",
+			StatusExpiration: 0,
+		},
+	}
+	// Marshal into string
+	bodyBytes, jsonError := json.Marshal(bodyStruct)
+	if jsonError != nil {
+		return jsonError
+	}
+
+	// Get the auth and refresh tokens
+	statusReq, statusReqError := http.NewRequest(http.MethodPost, os.Getenv("SLACK_API_URL")+"users.profile.set", ioutil.NopCloser(bytes.NewBuffer(bodyBytes)))
+	if statusReqError != nil {
+		return statusReqError
+	}
+	// Add the body headers
+	statusReq.Header.Add("Content-Type", "application/json")
+	statusReq.Header.Add("Content-Length", strconv.Itoa(len(bodyBytes)))
+	// Get the token for this user
+	token, tokenError := database.GetSlackForUser(user)
+	if tokenError != nil {
+		return tokenError
+	}
+	// Add auth
+	statusReq.Header.Add("Authorization", "Bearer "+token)
+	// Send the request
+	statusResp, statusRespError := client.Do(statusReq)
+	if statusRespError != nil {
+		return statusRespError
+	}
+	defer statusResp.Body.Close()
+	// Check status codes
+	if statusResp.StatusCode != http.StatusOK {
+		return errors.New("Non-200 status code from slack status set endpoint: " + strconv.Itoa(statusResp.StatusCode) + " / " + statusResp.Status)
+	}
+	// return success
+	return nil
 }
