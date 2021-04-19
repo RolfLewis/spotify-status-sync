@@ -56,9 +56,16 @@ func ValidateSchema() {
 		}
 	}
 
+	// Stores information related to the bot user in each team - saved during callback
+	createTableIfNotExists("teams", `CREATE TABLE teams (id text CONSTRAINT team_pk PRIMARY KEY NOT null, accesstoken text);`)
+
+	// Stores information for each connected spotify profile
 	createTableIfNotExists("spotifyaccounts", `CREATE TABLE spotifyaccounts (id text CONSTRAINT spotify_pk PRIMARY KEY NOT null,
 		accesstoken text, refreshtoken text, expirationat timestamp);`)
 
+	// Stores information related to each slack user of the app
 	createTableIfNotExists("slackaccounts", `CREATE TABLE slackaccounts (id text CONSTRAINT slack_pk PRIMARY KEY NOT null,
-		status text, accesstoken text, spotify_id text, CONSTRAINT spotify_fk FOREIGN KEY(spotify_id) REFERENCES spotifyaccounts(id));`)
+		status text, accesstoken text, spotify_id text, team_id text,
+		CONSTRAINT spotify_fk FOREIGN KEY(spotify_id) REFERENCES spotifyaccounts(id),
+		CONSTRAINT team_fk FOREIGN KEY(team_id) REFERENCES teams(id));`)
 }

@@ -233,10 +233,10 @@ func UpdateHome(user string, client *http.Client) error {
 	}
 
 	newView += "]}}" // Close blocks array, view object, and then json
-	return updateHomeHelper(newView, client)
+	return updateHomeHelper(user, newView, client)
 }
 
-func updateHomeHelper(view string, client *http.Client) error {
+func updateHomeHelper(user string, view string, client *http.Client) error {
 	// Build request and send
 	viewReq, viewReqError := http.NewRequest(http.MethodPost, os.Getenv("SLACK_API_URL")+"views.publish", strings.NewReader(view))
 	if viewReqError != nil {
@@ -248,7 +248,11 @@ func updateHomeHelper(view string, client *http.Client) error {
 	viewReq.Header.Add("Content-Length", strconv.Itoa(len(view)))
 
 	// Encode the authorization header
-	viewReq.Header.Add("Authorization", "Bearer "+os.Getenv("SLACK_BEARER_TOKEN"))
+	token, tokenError := database.GetTeamTokenForUser(user)
+	if tokenError != nil {
+		return tokenError
+	}
+	viewReq.Header.Add("Authorization", "Bearer "+token)
 
 	// Send the request
 	viewResp, viewRespError := client.Do(viewReq)

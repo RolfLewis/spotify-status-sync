@@ -34,7 +34,7 @@ type slackAuthResponse struct {
 	} `json:"authed_user"`
 }
 
-func ExchangeCodeForToken(code string, client *http.Client) (*string, error) {
+func ExchangeCodeForToken(code string, client *http.Client) (*slackAuthResponse, error) {
 	// Set the query values
 	queryValues := url.Values{}
 	queryValues.Set("code", code)
@@ -74,5 +74,5 @@ func ExchangeCodeForToken(code string, client *http.Client) (*string, error) {
 		return nil, jsonError
 	}
 
-	return &response.AuthedUser.AccessToken, nil
+	return &response, nil
 }

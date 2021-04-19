@@ -30,19 +30,36 @@ func SlackCallbackFlow(context *gin.Context, client *http.Client) {
 		context.String(http.StatusBadRequest, "No state/userid defined in callback request.")
 	}
 
+	// Exchange code for token
+	authResponse, exchangeError := slack.ExchangeCodeForToken(code, client)
+	if util.InternalError(exchangeError, context) {
+		return
+	}
+
+	// Make sure the team exists in DB
+	teamExistsError := database.EnsureTeamExists(authResponse.Team.ID)
+	if util.InternalError(teamExistsError, context) {
+		return
+	}
+
+	// Set token for team
+	teamUpdateError := database.SetTokenForTeam(authResponse.Team.ID, authResponse.AccessToken)
+	if util.InternalError(teamUpdateError, context) {
+		return
+	}
+
 	// Make sure we have a user record for the user
 	if util.InternalError(database.EnsureUserExists(user), context) {
 		return
 	}
 
-	// Exchange code for token
-	token, exchangeError := slack.ExchangeCodeForToken(code, client)
-	if util.InternalError(exchangeError, context) {
+	// Set the user's team id
+	if util.InternalError(database.SetTeamForUser(user, authResponse.Team.ID), context) {
 		return
 	}
 
 	// Save to user record
-	saveError := database.SaveSlackTokenForUser(user, *token)
+	saveError := database.SaveSlackTokenForUser(user, authResponse.AuthedUser.AccessToken)
 	if util.InternalError(saveError, context) {
 		return
 	}

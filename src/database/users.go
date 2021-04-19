@@ -44,6 +44,10 @@ func EnsureUserExists(user string) error {
 	return nil
 }
 
+func SetTeamForUser(user string, team string) error {
+	return updateRow(nil, true, "UPDATE slackaccounts SET team_id=$1 WHERE id=$2;", team, user)
+}
+
 // Adds the spotify information to the DB using a transaction. Rolls back on any error. Returns rollback error if one occurs.
 func AddSpotifyToUser(user string, id string, accessToken string, refreshToken string, expiresIn int) error {
 	// Open a transaction on the DB - roll it back if anything fails
@@ -110,14 +114,12 @@ func GetSpotifyForUser(user string) (string, []string, error) {
 
 func GetSlackForUser(user string) (string, error) {
 	// Get the token for the user
-	token, getError := getSingleString("SELECT accessToken FROM slackaccounts WHERE id=$1 AND accessToken IS NOT null;", user)
-	return token, getError
+	return getSingleString("SELECT accessToken FROM slackaccounts WHERE id=$1 AND accessToken IS NOT null;", user)
 }
 
 func GetStatusForUser(user string) (string, error) {
 	// Get the status string for the user
-	status, getError := getSingleString("SELECT status FROM slackaccounts WHERE id=$1 AND status IS NOT null;", user)
-	return status, getError
+	return getSingleString("SELECT status FROM slackaccounts WHERE id=$1 AND status IS NOT null;", user)
 }
 
 func getSingleString(query string, params ...interface{}) (string, error) {
@@ -129,6 +131,10 @@ func getSingleString(query string, params ...interface{}) (string, error) {
 		return "", getError
 	}
 	return object.(string), nil
+}
+
+func GetTeamTokenForUser(user string) (string, error) {
+	return getSingleString("SELECT teams.accesstoken FROM slackaccounts LEFT JOIN teams ON slackaccounts.team_id = teams.id WHERE slackaccounts.id=$1 AND teams.accesstoken IS NOT null;", user)
 }
 
 func SetStatusForUser(user string, status string) error {
