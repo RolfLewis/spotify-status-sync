@@ -109,6 +109,11 @@ func InteractivityEndpoint(context *gin.Context, client *http.Client) {
 	for _, action := range interaction.Actions {
 		// Disconnect button
 		if action.Type == "button" && action.ActionID == "spotify_disconnect_button" {
+			// Revoke token for user
+			revokeError := slack.RevokeUserToken(interaction.User.ID, client)
+			if util.InternalError(revokeError, context) {
+				return
+			}
 			// Delete all data
 			deleteError := database.DeleteAllDataForUser(interaction.User.ID)
 			if util.InternalError(deleteError, context) {

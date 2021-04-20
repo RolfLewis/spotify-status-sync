@@ -9,6 +9,8 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+
+	"rolflewis.com/spotify-status-sync/src/database"
 )
 
 type slackAuthResponse struct {
@@ -75,4 +77,63 @@ func ExchangeCodeForToken(code string, client *http.Client) (*slackAuthResponse,
 	}
 
 	return &response, nil
+}
+
+func RevokeUserToken(user string, client *http.Client) error {
+	// internal structs
+	type responseStruct struct {
+		OK      bool   `json:"ok"`
+		Revoked bool   `json:"bool"`
+		Error   string `json:"error"`
+	}
+
+	// Get the token for the user
+	token, tokenError := database.GetSlackForUser(user)
+	if tokenError != nil {
+		return tokenError
+	}
+	// Create a request
+	authReq, authReqError := http.NewRequest(http.MethodGet, os.Getenv("SLACK_API_URL")+"auth.revoke", nil)
+	if authReqError != nil {
+		return authReqError
+	}
+
+	// Encode the authorization header
+	authReq.Header.Add("Authorization", "Bearer "+token)
+
+	// Send the request
+	authResp, authRespError := client.Do(authReq)
+	if authRespError != nil {
+		return authRespError
+	}
+	defer authResp.Body.Close()
+
+	// Check status codes
+	if authResp.StatusCode != http.StatusOK {
+		return errors.New("Non-200 status code from slack auth revoke endpoint: " + strconv.Itoa(authResp.StatusCode) + " / " + authResp.Status)
+	}
+
+	// Read the tokens
+	jsonBytes, readError := ioutil.ReadAll(authResp.Body)
+	if readError != nil {
+		return readError
+	}
+
+	// Cast to struct
+	var response responseStruct
+	jsonError := json.Unmarshal(jsonBytes, &response)
+	if jsonError != nil {
+		return jsonError
+	}
+
+	// Check errors
+	if !response.OK {
+		return errors.New(response.Error)
+	}
+
+	// Make sure was actually revoked
+	if !response.Revoked {
+		return errors.New("Auth was not revoked.")
+	}
+	return nil
 }

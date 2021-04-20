@@ -50,6 +50,7 @@ func EventsEndpoint(context *gin.Context, client *http.Client) {
 	// Extract the inner event
 	event := wrapper.Event
 
+	// Make sure that this user exists
 	if util.InternalError(database.EnsureUserExists(event.User), context) {
 		return
 	}
