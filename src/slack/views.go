@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -34,7 +35,6 @@ func UpdateHome(user string, client *http.Client) error {
 	// Control vars
 	spotifyConnected := (profileID != "")
 	slackConnected := (token != "")
-	noneConnected := !(spotifyConnected || slackConnected)
 	bothConnected := (spotifyConnected && slackConnected)
 
 	// Start the view up to the point that something becomes dynamic
@@ -89,7 +89,7 @@ func UpdateHome(user string, client *http.Client) error {
 					}
 				},`
 
-	if !noneConnected {
+	if spotifyConnected {
 		newView += `{
 			"type": "section",
 			"text": {
@@ -199,14 +199,14 @@ func UpdateHome(user string, client *http.Client) error {
 			}`
 		}
 
-		if !noneConnected {
+		if spotifyConnected {
 			newView += `,{
 				"type": "divider"
 			},`
 		}
 	}
 
-	if !noneConnected {
+	if spotifyConnected {
 		newView += `{
 			"type": "section",
 			"text": {
@@ -234,6 +234,7 @@ func UpdateHome(user string, client *http.Client) error {
 	}
 
 	newView += "]}}" // Close blocks array, view object, and then json
+	log.Println(newView)
 	return updateHomeHelper(user, newView, client)
 }
 
