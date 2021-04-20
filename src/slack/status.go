@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -98,6 +99,7 @@ func getUserStatus(user string, client *http.Client) (*profile, error) {
 	}
 	// if profile is nil, the token was revoked. Cleanup and exit.
 	if profile == nil {
+		log.Println("Cleaning up former user.")
 		return nil, database.DeleteAllDataForUser(user)
 	}
 	return profile, nil
@@ -135,6 +137,7 @@ func setUserStatus(user string, newStatus string, client *http.Client) error {
 	}
 	// if profile is nil, the token was revoked. Cleanup and exit.
 	if profile == nil {
+		log.Println("Cleaning up former user.")
 		return database.DeleteAllDataForUser(user)
 	}
 	return nil
