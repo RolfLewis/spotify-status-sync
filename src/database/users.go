@@ -182,6 +182,11 @@ func DeleteAllDataForUser(user string) error {
 }
 
 func DeleteSpotifyDataForUser(user string) error {
+	// Remove the spotify record key from the slackaccount record first if exists
+	updateError := updateRow(nil, false, "UPDATE slackaccounts SET spotify_id=null WHERE id=$1;", user)
+	if updateError != nil {
+		return updateError
+	}
 	// Get the spotify account id for the user
 	var spotifyID string
 	scanError := appDatabase.QueryRowx("SELECT spotify_id FROM slackaccounts WHERE id=$1 AND spotify_id IS NOT null;", user).Scan(&spotifyID)
