@@ -101,12 +101,7 @@ func getUserStatus(user string, client *http.Client) (*profile, error) {
 	if profile == nil {
 		// clean the data from db
 		log.Println("Cleaning up former user.")
-		cleanupError := database.DeleteAllDataForUser(user)
-		if cleanupError != nil {
-			return nil, cleanupError
-		}
-		// refresh the home view
-		return nil, UpdateHome(user, client)
+		return nil, database.DeleteAllDataForUser(user)
 	}
 	return profile, nil
 }
@@ -145,12 +140,7 @@ func setUserStatus(user string, newStatus string, client *http.Client) error {
 	if profile == nil {
 		// clean the data from db
 		log.Println("Cleaning up former user.")
-		cleanupError := database.DeleteAllDataForUser(user)
-		if cleanupError != nil {
-			return cleanupError
-		}
-		// refresh the home view
-		return UpdateHome(user, client)
+		return database.DeleteAllDataForUser(user)
 	}
 	return nil
 }

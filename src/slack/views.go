@@ -248,11 +248,16 @@ func updateHomeHelper(user string, view string, client *http.Client) error {
 	viewReq.Header.Add("Content-Type", "application/json")
 	viewReq.Header.Add("Content-Length", strconv.Itoa(len(view)))
 
-	// Encode the authorization header
+	// set the authorization header
 	token, tokenError := database.GetTeamTokenForUser(user)
 	if tokenError != nil {
 		return tokenError
 	}
+	// If token is empty, invalid table connections
+	if token == "" {
+		return errors.New("No team token found for user.")
+	}
+	// Build header
 	viewReq.Header.Add("Authorization", "Bearer "+token)
 
 	// Send the request

@@ -55,6 +55,17 @@ func EventsEndpoint(context *gin.Context, client *http.Client) {
 		return
 	}
 
+	// Make sure the team exists in DB
+	teamExistsError := database.EnsureTeamExists(wrapper.TeamID)
+	if util.InternalError(teamExistsError, context) {
+		return
+	}
+
+	// Set the user's team id
+	if util.InternalError(database.SetTeamForUser(event.User, wrapper.TeamID), context) {
+		return
+	}
+
 	// If type is a app_home_opened, answer it
 	if event.Type == "app_home_opened" {
 		// Update the home page
