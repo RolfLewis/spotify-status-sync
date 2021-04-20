@@ -14,7 +14,8 @@ import (
 )
 
 type viewPublishResponse struct {
-	OK bool `json:"ok"`
+	OK    bool   `json:"ok"`
+	Error string `json:"error"`
 }
 
 func UpdateHome(user string, client *http.Client) error {
@@ -279,7 +280,7 @@ func updateHomeHelper(user string, view string, client *http.Client) error {
 	}
 
 	if !responseObject.OK {
-		return errors.New("Homepage update not reporting success.")
+		return errors.New("Homepage update not reporting success: " + responseObject.Error)
 	}
 
 	return nil
