@@ -99,8 +99,14 @@ func getUserStatus(user string, client *http.Client) (*profile, error) {
 	}
 	// if profile is nil, the token was revoked. Cleanup and exit.
 	if profile == nil {
+		// clean the data from db
 		log.Println("Cleaning up former user.")
-		return nil, database.DeleteAllDataForUser(user)
+		cleanupError := database.DeleteAllDataForUser(user)
+		if cleanupError != nil {
+			return nil, cleanupError
+		}
+		// refresh the home view
+		return nil, UpdateHome(user, client)
 	}
 	return profile, nil
 }
@@ -137,8 +143,14 @@ func setUserStatus(user string, newStatus string, client *http.Client) error {
 	}
 	// if profile is nil, the token was revoked. Cleanup and exit.
 	if profile == nil {
+		// clean the data from db
 		log.Println("Cleaning up former user.")
-		return database.DeleteAllDataForUser(user)
+		cleanupError := database.DeleteAllDataForUser(user)
+		if cleanupError != nil {
+			return cleanupError
+		}
+		// refresh the home view
+		return UpdateHome(user, client)
 	}
 	return nil
 }

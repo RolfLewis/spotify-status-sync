@@ -172,13 +172,24 @@ func updateRow(transaction *sqlx.Tx, mustEffect bool, query string, params ...in
 }
 
 func DeleteAllDataForUser(user string) error {
+	// Get the spotify account id for the user
+	var spotifyID string
+	scanError := appDatabase.QueryRowx("SELECT spotify_id FROM slackaccounts WHERE id=$1 AND spotify_id IS NOT null;", user).Scan(&spotifyID)
+	if scanError != nil && scanError != sql.ErrNoRows {
+		return scanError
+	}
 	// Delete the slack account record
 	_, slackDeleteError := appDatabase.Exec("DELETE FROM slackaccounts WHERE id=$1;", user)
 	if slackDeleteError != nil {
 		return slackDeleteError
 	}
+	// Delete the spotify record
+	if spotifyID != "" {
+		_, spotifyDeleteError := appDatabase.Exec("DELETE FROM spotifyaccounts WHERE id=$1;", spotifyID)
+		return spotifyDeleteError
+	}
 	// Delete spotify data
-	return DeleteSpotifyDataForUser(user)
+	return nil
 }
 
 func DeleteSpotifyDataForUser(user string) error {
