@@ -83,7 +83,7 @@ func RevokeUserToken(user string, client *http.Client) error {
 	// internal structs
 	type responseStruct struct {
 		OK      bool   `json:"ok"`
-		Revoked bool   `json:"bool"`
+		Revoked bool   `json:"revoked"`
 		Error   string `json:"error"`
 	}
 
