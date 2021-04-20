@@ -93,7 +93,7 @@ func UpdateHome(user string, client *http.Client) error {
 			"type": "section",
 			"text": {
 				"type": "mrkdwn",
-				"text": "If you would like to disconnect your Slack and Spotify accounts, click the button below. That button will immediately erase all information that the app saves about your accounts and clear your status if it is set by the app."
+				"text": "If you would like to disconnect your Spotify account, click the button below. That button will immediately erase all information the app saves about your spotify account and clear your status if it is set by the app. To revoke the access that the app has to your Slack user, simply use the standard Slack revocation page. Revoking Slack access will disconnect Spotify as well."
 			}
 		},`
 	} else {
@@ -101,7 +101,7 @@ func UpdateHome(user string, client *http.Client) error {
 			"type": "section",
 			"text": {
 				"type": "mrkdwn",
-				"text": "You can disconnect your Slack and Spotify accounts at any time. Once you have them connected, this page will update to include a 'disconnect' button. That button will immediately erase all information that the app saves about your accounts and clear your status if it is set by the app."
+				"text": "You can disconnect your Slack and Spotify accounts at any time. To disconnect your slack account, simply use the "revoke" button on the app authorization within Slack's settings. For Spotify, there is a "disconnect" button on this page once you have connected your account. Revoking Slack access will disconnect Spotify as well."
 			}
 		},`
 	}
@@ -210,20 +210,20 @@ func UpdateHome(user string, client *http.Client) error {
 			"type": "section",
 			"text": {
 				"type": "mrkdwn",
-				"text": "*Erase Data and Disconnect*"
+				"text": "*Disconnect Spotify*"
 			}
 		},
 		{
 			"type": "section",
 			"text": {
 				"type": "mrkdwn",
-				"text": "Click this button to erase application data and disconnect:"
+				"text": "Click this button to disconnect your Spotify account:"
 			},
 			"accessory": {
 				"type": "button",
 				"text": {
 					"type": "plain_text",
-					"text": "Disconnect / Delete",
+					"text": "Disconnect Spotify",
 					"emoji": true
 				},
 				"value": "spotify_disconnect_button",
