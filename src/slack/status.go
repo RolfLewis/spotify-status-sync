@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -15,9 +16,9 @@ import (
 )
 
 type UserProfile struct {
-	IsOk    bool    `json:"ok"`
-	Profile profile `json:"profile"`
-	Error   string  `json:"error"`
+	IsOk    bool     `json:"ok"`
+	Profile *profile `json:"profile,omitempty"`
+	Error   *string  `json:"error"`
 }
 
 type statusSetBody struct {
@@ -46,7 +47,7 @@ func UpdateUserStatus(user string, newStatus string, client *http.Client) error 
 		return readError
 	}
 	// Check if we can overwrite, and do so if we can
-	if canOverwriteStatus(profile) {
+	if profile != nil && canOverwriteStatus(profile) {
 		// Set the status in slack
 		setError := setUserStatus(user, newStatus, client)
 		if setError != nil {
@@ -61,68 +62,45 @@ func UpdateUserStatus(user string, newStatus string, client *http.Client) error 
 	return nil
 }
 
-func canOverwriteStatus(profile *UserProfile) bool {
+func canOverwriteStatus(profile *profile) bool {
 	// Don't overwrite if the status has an expiration
-	if profile.Profile.StatusExpiration != 0 {
+	if profile.StatusExpiration != 0 {
 		return false
 	}
 	// Don't overwrite if the emoji is not :musical_note: or blank
-	if profile.Profile.StatusEmoji != "" && profile.Profile.StatusEmoji != ":musical_note:" {
+	if profile.StatusEmoji != "" && profile.StatusEmoji != ":musical_note:" {
 		return false
 	}
 	// Don't overwrite if the status isn't blank and isn't of our format
 	// Has to be the most vague format we use, which is the catch-all over-limit fallback which only features name.
 	regex := regexp.MustCompile(`Listening to .* on Spotify`)
-	if profile.Profile.StatusText != "" && !regex.MatchString(profile.Profile.StatusText) {
+	if profile.StatusText != "" && !regex.MatchString(profile.StatusText) {
 		return false
 	}
 
 	return true
 }
 
-func getUserStatus(user string, client *http.Client) (*UserProfile, error) {
+func getUserStatus(user string, client *http.Client) (*profile, error) {
 	// Set the query values
 	queryValues := url.Values{}
 	queryValues.Set("user", user)
-	// Get the auth and refresh tokens
-	songReq, songReqError := http.NewRequest(http.MethodGet, os.Getenv("SLACK_API_URL")+"users.profile.get?"+queryValues.Encode(), nil)
-	if songReqError != nil {
-		return nil, songReqError
-	}
 	// Get the token for this user
 	token, tokenError := database.GetSlackForUser(user)
 	if tokenError != nil {
 		return nil, tokenError
 	}
-	// Add auth
-	songReq.Header.Add("Authorization", "Bearer "+token)
-	// Send the request
-	songResp, songRespError := client.Do(songReq)
-	if songRespError != nil {
-		return nil, songRespError
+	authHeader := "Bearer " + token
+	// Run request
+	profile, requestError := profileRequestRunner(http.MethodGet, os.Getenv("SLACK_API_URL")+"users.profile.get?"+queryValues.Encode(), nil, authHeader, client)
+	if requestError != nil {
+		return nil, requestError
 	}
-	defer songResp.Body.Close()
-	// Check status codes
-	if songResp.StatusCode != http.StatusOK {
-		return nil, errors.New("Non-200 status code from slack profile endpoint: " + strconv.Itoa(songResp.StatusCode) + " / " + songResp.Status)
+	// if profile is nil, the token was revoked. Cleanup and exit.
+	if profile == nil {
+		return nil, database.DeleteAllDataForUser(user)
 	}
-	// Read the tokens
-	jsonBytes, readError := ioutil.ReadAll(songResp.Body)
-	if readError != nil {
-		return nil, readError
-	}
-	// unmarshal into struct
-	var profile UserProfile
-	jsonError := json.Unmarshal(jsonBytes, &profile)
-	if jsonError != nil {
-		return nil, jsonError
-	}
-	// Check the ok field
-	if !profile.IsOk {
-		return nil, errors.New("Error reported from Slack profile endpoint: " + profile.Error)
-	}
-	// Return success
-	return &profile, nil
+	return profile, nil
 }
 
 func setUserStatus(user string, newStatus string, client *http.Client) error {
@@ -144,32 +122,67 @@ func setUserStatus(user string, newStatus string, client *http.Client) error {
 	if jsonError != nil {
 		return jsonError
 	}
-
-	// Get the auth and refresh tokens
-	statusReq, statusReqError := http.NewRequest(http.MethodPost, os.Getenv("SLACK_API_URL")+"users.profile.set", ioutil.NopCloser(bytes.NewBuffer(bodyBytes)))
-	if statusReqError != nil {
-		return statusReqError
-	}
-	// Add the body headers
-	statusReq.Header.Add("Content-Type", "application/json")
-	statusReq.Header.Add("Content-Length", strconv.Itoa(len(bodyBytes)))
 	// Get the token for this user
 	token, tokenError := database.GetSlackForUser(user)
 	if tokenError != nil {
 		return tokenError
 	}
+	authHeader := "Bearer " + token
+	// Run request
+	profile, requestError := profileRequestRunner(http.MethodPost, os.Getenv("SLACK_API_URL")+"users.profile.set", bodyBytes, authHeader, client)
+	if requestError != nil {
+		return requestError
+	}
+	// if profile is nil, the token was revoked. Cleanup and exit.
+	if profile == nil {
+		return database.DeleteAllDataForUser(user)
+	}
+	return nil
+}
+
+func profileRequestRunner(method string, url string, body []byte, auth string, client *http.Client) (*profile, error) {
+	// Convert the body
+	var bodyReader io.ReadCloser
+	if body != nil {
+		bodyReader = ioutil.NopCloser(bytes.NewBuffer(body))
+	}
+	// Get a new request
+	statusReq, statusReqError := http.NewRequest(method, url, bodyReader)
+	if statusReqError != nil {
+		return nil, statusReqError
+	}
+	// Add the body headers
+	if body != nil {
+		statusReq.Header.Add("Content-Type", "application/json")
+		statusReq.Header.Add("Content-Length", strconv.Itoa(len(body)))
+	}
 	// Add auth
-	statusReq.Header.Add("Authorization", "Bearer "+token)
+	statusReq.Header.Add("Authorization", auth)
 	// Send the request
 	statusResp, statusRespError := client.Do(statusReq)
 	if statusRespError != nil {
-		return statusRespError
+		return nil, statusRespError
 	}
 	defer statusResp.Body.Close()
-	// Check status codes
-	if statusResp.StatusCode != http.StatusOK {
-		return errors.New("Non-200 status code from slack status set endpoint: " + strconv.Itoa(statusResp.StatusCode) + " / " + statusResp.Status)
+	// Read the tokens
+	jsonBytes, readError := ioutil.ReadAll(statusResp.Body)
+	if readError != nil {
+		return nil, readError
 	}
-	// return success
-	return nil
+	// unmarshal into struct
+	var profile UserProfile
+	jsonError := json.Unmarshal(jsonBytes, &profile)
+	if jsonError != nil {
+		return nil, jsonError
+	}
+	// Check the ok field
+	if !profile.IsOk {
+		// If the error is token_revoked, trigger a cleanup for this user and exit gracefully
+		if *profile.Error == "token_revoked" {
+			return nil, nil
+		} else {
+			return nil, errors.New("Error reported from Slack profile endpoint: " + *profile.Error)
+		}
+	}
+	return profile.Profile, nil
 }
