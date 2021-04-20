@@ -102,7 +102,7 @@ func UpdateHome(user string, client *http.Client) error {
 			"type": "section",
 			"text": {
 				"type": "mrkdwn",
-				"text": "You can disconnect your Slack and Spotify accounts at any time. To disconnect your slack account, simply use the "revoke" button on the app authorization within Slack's settings. For Spotify, there is a "disconnect" button on this page once you have connected your account. Revoking Slack access will disconnect Spotify as well."
+				"text": "You can disconnect your Slack and Spotify accounts at any time. To disconnect your slack account, simply use the 'revoke' button on the app authorization within Slack's settings. For Spotify, there is a 'disconnect' button on this page once you have connected your account. Revoking Slack access will disconnect Spotify as well."
 			}
 		},`
 	}
