@@ -2,10 +2,7 @@ package database
 
 import (
 	"database/sql"
-	"errors"
 	"time"
-
-	"github.com/jmoiron/sqlx"
 )
 
 func addNewUser(user string) error {
@@ -122,17 +119,6 @@ func GetStatusForUser(user string) (string, error) {
 	return getSingleString("SELECT status FROM slackaccounts WHERE id=$1 AND status IS NOT null;", user)
 }
 
-func getSingleString(query string, params ...interface{}) (string, error) {
-	var object interface{}
-	getError := appDatabase.Get(&object, query, params...)
-	if getError == sql.ErrNoRows {
-		return "", nil
-	} else if getError != nil {
-		return "", getError
-	}
-	return object.(string), nil
-}
-
 func GetTeamTokenForUser(user string) (string, error) {
 	return getSingleString("SELECT teams.accesstoken FROM slackaccounts LEFT JOIN teams ON slackaccounts.team_id = teams.id WHERE slackaccounts.id=$1 AND teams.accesstoken IS NOT null;", user)
 }
@@ -140,35 +126,6 @@ func GetTeamTokenForUser(user string) (string, error) {
 func SetStatusForUser(user string, status string) error {
 	// Update this record
 	return updateRow(nil, true, "UPDATE slackaccounts SET status=$1 WHERE id=$2;", status, user)
-}
-
-func updateRow(transaction *sqlx.Tx, mustEffect bool, query string, params ...interface{}) error {
-	// If transaction is given, use it. If not, use the DB pool
-	var results sql.Result
-	var rowUpdateError error
-	if transaction != nil {
-		results, rowUpdateError = transaction.Exec(query, params...)
-	} else {
-		results, rowUpdateError = appDatabase.Exec(query, params...)
-	}
-
-	if rowUpdateError != nil {
-		return rowUpdateError
-	}
-	// If mustEffect, we throw an error when no row was affected
-	if mustEffect {
-		// Check to make sure a row was found
-		rowsAffected, affectedError := results.RowsAffected()
-		if affectedError != nil {
-			return affectedError
-		}
-		// If no rows were overwritten, then nothing had that ID
-		if rowsAffected == 0 {
-			return errors.New("No row was modified during update, and mustEffect is set to true.")
-		}
-	}
-	// return success
-	return nil
 }
 
 func DeleteAllDataForUser(user string) error {
@@ -192,38 +149,9 @@ func DeleteAllDataForUser(user string) error {
 	return nil
 }
 
-func DeleteSpotifyDataForUser(user string) error {
-	// Get the spotify account id for the user
-	var spotifyID string
-	scanError := appDatabase.QueryRowx("SELECT spotify_id FROM slackaccounts WHERE id=$1 AND spotify_id IS NOT null;", user).Scan(&spotifyID)
-	if scanError != nil && scanError != sql.ErrNoRows {
-		return scanError
-	}
-	// Remove the spotify record key from the slackaccount record first if exists
-	updateError := updateRow(nil, false, "UPDATE slackaccounts SET spotify_id=null WHERE id=$1;", user)
-	if updateError != nil {
-		return updateError
-	}
-	// Delete the spotify record
-	if spotifyID != "" {
-		_, spotifyDeleteError := appDatabase.Exec("DELETE FROM spotifyaccounts WHERE id=$1;", spotifyID)
-		return spotifyDeleteError
-	}
-	// return success
-	return nil
-}
-
-func GetAllUsersWhoExpireWithinXMinutes(minutes int) ([]string, error) {
-	// Calculate the expiration timeframe
-	cutoff := time.Now().Add(time.Minute * time.Duration(minutes))
-
-	// Get user id where spotify expires in less than x minutes
+func GetUsersForTeam(team string) ([]string, error) {
+	// Get all the user ids related to the given team id
 	var users []string
-	selectError := appDatabase.Select(&users, "SELECT slackaccounts.id FROM slackaccounts LEFT JOIN spotifyaccounts on slackaccounts.spotify_id = spotifyaccounts.id WHERE spotifyaccounts.expirationAt <= $1;", cutoff)
-	if selectError != nil {
-		return nil, selectError
-	}
-
-	// Return the list of users
-	return users, nil
+	selectError := appDatabase.Select(&users, "SELECT id FROM slackaccounts WHERE teamid = $1;", team)
+	return users, selectError
 }

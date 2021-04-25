@@ -32,3 +32,8 @@ func EnsureTeamExists(team string) error {
 func SetTokenForTeam(team string, token string) error {
 	return updateRow(nil, true, "UPDATE teams SET accesstoken=$1 WHERE id=$2;", token, team)
 }
+
+func DeleteAllDataForTeam(team string) error {
+	_, teamDeleteError := appDatabase.Exec("DELETE FROM teams WHERE id=$1;", team)
+	return teamDeleteError
+}

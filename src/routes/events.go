@@ -25,6 +25,10 @@ type event struct {
 	Channel   string `json:"channel"`
 	Timestamp string `json:"event_ts"`
 	Tab       string `json:"tab"`
+	Tokens    struct {
+		OAuth []string `json:"oauth"`
+		Bot   []string `json:"bot"`
+	} `json:"tokens"`
 }
 
 func EventsEndpoint(context *gin.Context, client *http.Client) {
@@ -45,38 +49,81 @@ func EventsEndpoint(context *gin.Context, client *http.Client) {
 	if wrapper.Type == "url_verification" {
 		context.String(http.StatusOK, wrapper.Challenge)
 		return
-	}
+	} else if wrapper.Type == "event_callback" {
+		// Extract the inner event
+		event := wrapper.Event
 
-	// Extract the inner event
-	event := wrapper.Event
-
-	// Make sure that this user exists
-	if util.InternalError(database.EnsureUserExists(event.User), context) {
-		return
-	}
-
-	// Make sure the team exists in DB
-	teamExistsError := database.EnsureTeamExists(wrapper.TeamID)
-	if util.InternalError(teamExistsError, context) {
-		return
-	}
-
-	// Set the user's team id
-	if util.InternalError(database.SetTeamForUser(event.User, wrapper.TeamID), context) {
-		return
-	}
-
-	// If type is a app_home_opened, answer it
-	if event.Type == "app_home_opened" {
-		// Update the home page
-		updateError := slack.UpdateHome(event.User, client)
-		if util.InternalError(updateError, context) {
-			return
+		// If type is a app_home_opened, answer it
+		if event.Type == "app_home_opened" {
+			// Make sure that this user exists
+			if util.InternalError(database.EnsureUserExists(event.User), context) {
+				return
+			}
+			// Make sure the team exists in DB
+			teamExistsError := database.EnsureTeamExists(wrapper.TeamID)
+			if util.InternalError(teamExistsError, context) {
+				return
+			}
+			// Set the user's team id
+			if util.InternalError(database.SetTeamForUser(event.User, wrapper.TeamID), context) {
+				return
+			}
+			// Update the home page
+			updateError := slack.UpdateHome(event.User, client)
+			if util.InternalError(updateError, context) {
+				return
+			}
+			// Send an acknowledgment
+			context.String(http.StatusOK, "Ok")
+		} else if event.Type == "tokens_revoked" {
+			// Track the users that get deleted via a team wipe, so we don't mess with them in the second step here
+			usersIncludedInTeamWipe := make(map[string]bool, 0)
+			// Delete the team data and token of revoked bot tokens
+			for _, team := range event.Tokens.Bot {
+				// Get all users related to this team
+				teamUsers, usersGetError := database.GetUsersForTeam(team)
+				if util.InternalError(usersGetError, context) {
+					return
+				}
+				// Clean the data out for these users
+				for _, user := range teamUsers {
+					cleanupError := database.DeleteAllDataForUser(user)
+					if util.InternalError(cleanupError, context) {
+						return
+					}
+					// Track the user
+					usersIncludedInTeamWipe[user] = true
+				}
+				// Delete the team record
+				teamDeleteError := database.DeleteAllDataForTeam(team)
+				if util.InternalError(teamDeleteError, context) {
+					return
+				}
+			}
+			// Delete all of the users related to revoked user tokens
+			for _, user := range event.Tokens.OAuth {
+				// Only clean the user if it wasn't covered by a team wipe
+				_, wiped := usersIncludedInTeamWipe[user]
+				if !wiped {
+					log.Println("Cleaning up former user.")
+					// Delete db data
+					cleanupError := database.DeleteAllDataForUser(user)
+					if util.InternalError(cleanupError, context) {
+						return
+					}
+					// Update the app home for user
+					updateError := slack.UpdateHome(user, client)
+					if util.InternalError(updateError, context) {
+						return
+					}
+				}
+			}
+		} else {
+			context.String(http.StatusBadRequest, "Not a supported event")
+			log.Println("Not a supported event:", event)
 		}
-		// Send an acknowledgment
-		context.String(http.StatusOK, "Ok")
 	} else {
 		context.String(http.StatusBadRequest, "Not a supported event")
-		log.Println("Not a supported event:", event)
+		log.Println("Not a supported event:", wrapper)
 	}
 }
