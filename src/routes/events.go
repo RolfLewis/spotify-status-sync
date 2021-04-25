@@ -105,8 +105,22 @@ func EventsEndpoint(context *gin.Context, client *http.Client) {
 				// Only clean the user if it wasn't covered by a team wipe
 				_, wiped := usersIncludedInTeamWipe[user]
 				if !wiped {
+					// Clean out the spotify and slack authorization data so a page update is essentially like new
+					spotifyClearError := database.DeleteSpotifyDataForUser(user)
+					if util.InternalError(spotifyClearError, context) {
+						return
+					}
+					slackTokenClear := database.SaveSlackTokenForUser(user, "")
+					if util.InternalError(slackTokenClear, context) {
+						return
+					}
+					// Reset user's app page - we can do this because we still have a bot user in the team
+					updateError := slack.UpdateHome(user, client)
+					if util.InternalError(updateError, context) {
+						return
+					}
+					// Delete user data
 					log.Println("Cleaning up former user.")
-					// Delete db data
 					cleanupError := database.DeleteAllDataForUser(user)
 					if util.InternalError(cleanupError, context) {
 						return
