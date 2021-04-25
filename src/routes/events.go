@@ -77,7 +77,7 @@ func EventsEndpoint(context *gin.Context, client *http.Client) {
 			context.String(http.StatusOK, "Ok")
 		} else if event.Type == "tokens_revoked" {
 			// Track the users that get deleted via a team wipe, so we don't mess with them in the second step here
-			usersIncludedInTeamWipe := make(map[string]bool, 0)
+			usersIncludedInTeamWipe := make(map[string]bool)
 			// Delete the team data and token of revoked bot tokens
 			for _, team := range event.Tokens.Bot {
 				// Get all users related to this team
@@ -109,11 +109,6 @@ func EventsEndpoint(context *gin.Context, client *http.Client) {
 					// Delete db data
 					cleanupError := database.DeleteAllDataForUser(user)
 					if util.InternalError(cleanupError, context) {
-						return
-					}
-					// Update the app home for user
-					updateError := slack.UpdateHome(user, client)
-					if util.InternalError(updateError, context) {
 						return
 					}
 				}
