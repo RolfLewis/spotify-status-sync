@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -52,7 +53,10 @@ func main() {
 	go spotifyCurrentlyPlayingLoop()
 
 	// Stand up server
-	router.Run(":" + port)
+	routerError := router.Run(":" + port)
+	if router != nil {
+		log.Fatal("Router Error:", routerError)
+	}
 }
 
 func statusSyncHelper() (int, error) {
@@ -74,13 +78,22 @@ func statusSyncHelper() (int, error) {
 			if current.CurrentlyPlayingType == "track" {
 				// Build the new status
 				newStatus = "Listening to \"" + current.Item.Name + "\" by "
-				for index, artist := range current.Item.Artists {
+				// To help in reducing character count, don't include artists in the artists lists
+				// who are also included in the song name such as "feat. artist name"
+				reducedArtistList := make([]string, 0)
+				for _, artist := range current.Item.Artists {
+					if !strings.Contains(artist.Name, current.Item.Name) {
+						reducedArtistList = append(reducedArtistList, artist.Name)
+					}
+				}
+				// Build the artists section of the status
+				for index, artist := range reducedArtistList {
 					// Comma separated list
 					if index > 0 {
 						newStatus += ", "
 					}
 					// add artists name
-					newStatus += artist.Name
+					newStatus += artist
 				}
 				newStatus += " on Spotify"
 			} else if current.CurrentlyPlayingType == "episode" {

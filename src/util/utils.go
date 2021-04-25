@@ -41,7 +41,7 @@ func IsSecureFromSlack(context *gin.Context) bool {
 	}
 
 	// Verify that this timestamp is in the last 2 minutes - mitigates replay attacks
-	if math.Abs(time.Now().Sub(time.Unix(timestamp, 0)).Seconds()) > 2*60 {
+	if math.Abs(time.Since(time.Unix(timestamp, 0)).Seconds()) > 2*60 {
 		return false
 	}
 
