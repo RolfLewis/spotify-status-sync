@@ -29,15 +29,6 @@ func DisconnectDatabase() {
 	}
 }
 
-// Rolls back the transaction and returns the causing error. If rollback fails, returns that error instead.
-func rollbackOnError(transaction *sqlx.Tx, err error) error {
-	rollbackError := transaction.Rollback()
-	if rollbackError != nil {
-		return rollbackError
-	}
-	return err
-}
-
 func ValidateSchema() {
 	createTableIfNotExists := func(tableParam string, createCmd string) {
 		// Check if the table exists
