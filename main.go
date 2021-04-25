@@ -54,7 +54,7 @@ func main() {
 
 	// Stand up server
 	routerError := router.Run(":" + port)
-	if router != nil {
+	if routerError != nil {
 		log.Fatal("Router Error:", routerError)
 	}
 }
