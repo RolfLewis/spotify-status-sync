@@ -79,9 +79,9 @@ func EventsEndpoint(context *gin.Context, client *http.Client) {
 			// Track the users that get deleted via a team wipe, so we don't mess with them in the second step here
 			usersIncludedInTeamWipe := make(map[string]bool)
 			// Delete the team data and token of revoked bot tokens
-			for _, team := range event.Tokens.Bot {
+			if len(event.Tokens.Bot) > 0 {
 				// Get all users related to this team
-				teamUsers, usersGetError := database.GetUsersForTeam(team)
+				teamUsers, usersGetError := database.GetUsersForTeam(wrapper.TeamID)
 				if util.InternalError(usersGetError, context) {
 					return
 				}
@@ -95,7 +95,7 @@ func EventsEndpoint(context *gin.Context, client *http.Client) {
 					usersIncludedInTeamWipe[user] = true
 				}
 				// Delete the team record
-				teamDeleteError := database.DeleteAllDataForTeam(team)
+				teamDeleteError := database.DeleteAllDataForTeam(wrapper.TeamID)
 				if util.InternalError(teamDeleteError, context) {
 					return
 				}
