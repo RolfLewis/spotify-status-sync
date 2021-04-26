@@ -152,6 +152,6 @@ func DeleteAllDataForUser(user string) error {
 func GetUsersForTeam(team string) ([]string, error) {
 	// Get all the user ids related to the given team id
 	var users []string
-	selectError := appDatabase.Select(&users, "SELECT id FROM slackaccounts WHERE team_id = $1;", team)
+	selectError := appDatabase.Select(&users, "SELECT id FROM slackaccounts WHERE team_id=$1;", team)
 	return users, selectError
 }

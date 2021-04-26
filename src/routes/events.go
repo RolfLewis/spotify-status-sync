@@ -76,55 +76,30 @@ func EventsEndpoint(context *gin.Context, client *http.Client) {
 			// Send an acknowledgment
 			context.String(http.StatusOK, "Ok")
 		} else if event.Type == "tokens_revoked" {
-			// Track the users that get deleted via a team wipe, so we don't mess with them in the second step here
-			usersIncludedInTeamWipe := make(map[string]bool)
-			// Delete the team data and token of revoked bot tokens
-			if len(event.Tokens.Bot) > 0 {
-				// Get all users related to this team
-				teamUsers, usersGetError := database.GetUsersForTeam(wrapper.TeamID)
-				if util.InternalError(usersGetError, context) {
+			// Delete all of the users related to revoked user tokens
+			for _, user := range event.Tokens.OAuth {
+				// Clean out the spotify and slack authorization data so a page update is essentially like new
+				spotifyClearError := database.DeleteSpotifyDataForUser(user)
+				if util.InternalError(spotifyClearError, context) {
 					return
 				}
-				// Clean the data out for these users
-				for _, user := range teamUsers {
-					cleanupError := database.DeleteAllDataForUser(user)
-					if util.InternalError(cleanupError, context) {
-						return
-					}
-					// Track the user
-					usersIncludedInTeamWipe[user] = true
+				slackTokenClear := database.SaveSlackTokenForUser(user, "")
+				if util.InternalError(slackTokenClear, context) {
+					return
 				}
+				// Delete user data
+				log.Println("Cleaning up former user.")
+				cleanupError := database.DeleteAllDataForUser(user)
+				if util.InternalError(cleanupError, context) {
+					return
+				}
+			}
+			// Delete the team data and token of revoked bot tokens
+			if len(event.Tokens.Bot) > 0 {
 				// Delete the team record
 				teamDeleteError := database.DeleteAllDataForTeam(wrapper.TeamID)
 				if util.InternalError(teamDeleteError, context) {
 					return
-				}
-			}
-			// Delete all of the users related to revoked user tokens
-			for _, user := range event.Tokens.OAuth {
-				// Only clean the user if it wasn't covered by a team wipe
-				_, wiped := usersIncludedInTeamWipe[user]
-				if !wiped {
-					// Clean out the spotify and slack authorization data so a page update is essentially like new
-					spotifyClearError := database.DeleteSpotifyDataForUser(user)
-					if util.InternalError(spotifyClearError, context) {
-						return
-					}
-					slackTokenClear := database.SaveSlackTokenForUser(user, "")
-					if util.InternalError(slackTokenClear, context) {
-						return
-					}
-					// Reset user's app page - we can do this because we still have a bot user in the team
-					updateError := slack.UpdateHome(user, client)
-					if util.InternalError(updateError, context) {
-						return
-					}
-					// Delete user data
-					log.Println("Cleaning up former user.")
-					cleanupError := database.DeleteAllDataForUser(user)
-					if util.InternalError(cleanupError, context) {
-						return
-					}
 				}
 			}
 		} else {
