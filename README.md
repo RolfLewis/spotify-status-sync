@@ -4,4 +4,4 @@ An Oauth 2.0 based app that syncs the currently playing spotify song into your s
 
 ## Documentation
 
-Documentation on how to install and use the app can be found on the app's website, [here](www.spotifysync.rolflewis.com).
+Documentation on how to install and use the app can be found on the app's website, [here](https://www.spotifysync.rolflewis.com "App Homepage").
